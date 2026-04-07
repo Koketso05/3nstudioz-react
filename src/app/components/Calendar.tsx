@@ -5,9 +5,10 @@ interface CalendarProps {
   selected?: Date;
   onSelect: (date: Date) => void;
   bookedDates?: Date[];
+  blockedDates?: Date[];
 }
 
-export function Calendar({ selected, onSelect, bookedDates = [] }: CalendarProps) {
+export function Calendar({ selected, onSelect, bookedDates = [], blockedDates = [] }: CalendarProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
   const monthNames = [
@@ -33,6 +34,10 @@ export function Calendar({ selected, onSelect, bookedDates = [] }: CalendarProps
 
   const isBooked = (date: Date) => {
     return bookedDates.some((bookedDate) => isSameDay(bookedDate, date));
+  };
+
+  const isBlocked = (date: Date) => {
+    return blockedDates.some((blockedDate) => isSameDay(blockedDate, date));
   };
 
   const isPast = (date: Date) => {
@@ -63,8 +68,9 @@ export function Calendar({ selected, onSelect, bookedDates = [] }: CalendarProps
     const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
     const isSelectedDay = selected && isSameDay(date, selected);
     const isBookedDay = isBooked(date);
+    const isBlockedDay = isBlocked(date);
     const isPastDay = isPast(date);
-    const isDisabled = isPastDay || isBookedDay;
+    const isDisabled = isPastDay || isBookedDay || isBlockedDay;
 
     days.push(
       <button
@@ -77,6 +83,8 @@ export function Calendar({ selected, onSelect, bookedDates = [] }: CalendarProps
             ? "bg-yellow-400 text-black font-semibold"
             : isBookedDay
             ? "bg-red-500/20 border border-red-500/40 text-red-400 cursor-not-allowed"
+            : isBlockedDay
+            ? "bg-gray-500/20 border border-gray-500/40 text-gray-400 cursor-not-allowed"
             : isPastDay
             ? "text-white/20 cursor-not-allowed"
             : "hover:bg-white/10 text-white"

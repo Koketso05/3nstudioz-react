@@ -33,37 +33,50 @@ export function Booking() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [bookedDates, setBookedDates] = useState<Date[]>([]);
+  const [blockedDates, setBlockedDates] = useState<Date[]>([]);
 
   const emailServiceId = import.meta.env.VITE_EMAILJS_SERVICE_ID;
   const emailTemplateId = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
   const emailPublicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
 
   useEffect(() => {
-    const fetchBookedDates = async () => {
+    const fetchUnavailableDates = async () => {
       try {
-        const { data, error } = await supabase
+        // Fetch confirmed bookings
+        const { data: bookingsData, error: bookingsError } = await supabase
           .from('bookings')
           .select('event_date')
           .not('event_date', 'is', null)
           .eq('confirmed', true);
 
-        if (error) {
-          console.error('Error fetching booked dates:', error);
-          return;
-        }
-
-        if (data) {
-          const dates = data
+        if (bookingsError) {
+          console.error('Error fetching booked dates:', bookingsError);
+        } else if (bookingsData) {
+          const booked = bookingsData
             .map(booking => booking.event_date ? new Date(booking.event_date) : null)
             .filter(date => date !== null) as Date[];
-          setBookedDates(dates);
+          setBookedDates(booked);
+        }
+
+        // Fetch blocked dates
+        const { data: blockedData, error: blockedError } = await supabase
+          .from('blocked_dates')
+          .select('blocked_date');
+
+        if (blockedError) {
+          console.error('Error fetching blocked dates:', blockedError);
+        } else if (blockedData) {
+          const blocked = blockedData
+            .map(blocked => blocked.blocked_date ? new Date(blocked.blocked_date) : null)
+            .filter(date => date !== null) as Date[];
+          setBlockedDates(blocked);
         }
       } catch (err) {
-        console.error('Error fetching booked dates:', err);
+        console.error('Error fetching unavailable dates:', err);
       }
     };
 
-    fetchBookedDates();
+    fetchUnavailableDates();
   }, []);
 
   const sendBookingNotificationEmail = async (bookingData: BookingFormData) => {
@@ -115,6 +128,16 @@ export function Booking() {
     setError(null);
 
     try {
+      // Validate that selected date is not blocked
+      if (formData.eventDate) {
+        const isDateBlocked = blockedDates.some(blockedDate =>
+          blockedDate.toDateString() === formData.eventDate!.toDateString()
+        );
+        if (isDateBlocked) {
+          throw new Error('Selected date is not available for booking');
+        }
+      }
+
       const { data, error } = await supabase
         .from('bookings')
         .insert([
@@ -377,6 +400,7 @@ export function Booking() {
                 selected={formData.eventDate}
                 onSelect={(date) => updateFormData("eventDate", date)}
                 bookedDates={bookedDates}
+                blockedDates={blockedDates}
               />
 
               <div className="mt-6 space-y-3 text-sm">
@@ -387,6 +411,10 @@ export function Booking() {
                 <div className="flex items-center gap-3">
                   <div className="w-4 h-4 bg-red-500/20 border border-red-500/40 rounded"></div>
                   <span className="text-white/70">Already booked</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-4 h-4 bg-gray-500/20 border border-gray-500/40 rounded"></div>
+                  <span className="text-white/70">Blocked / Unavailable</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="w-4 h-4 bg-white/5 border border-white/20 rounded"></div>
