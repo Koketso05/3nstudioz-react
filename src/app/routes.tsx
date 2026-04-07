@@ -7,6 +7,7 @@ import { Booking } from "./pages/Booking";
 import { Contact } from "./pages/Contact";
 import { About } from "./pages/About";
 import { AdminLayout } from "./components/AdminLayout";
+import { AdminLogin } from "./pages/admin/Login";
 import { AdminDashboard } from "./pages/admin/Dashboard";
 import { AdminBookings } from "./pages/admin/Bookings";
 import { AdminPortfolio } from "./pages/admin/Portfolio";
@@ -26,6 +27,10 @@ export const router = createBrowserRouter([
       { path: "contact", Component: Contact },
       { path: "about", Component: About },
     ],
+  },
+  {
+    path: "/admin/login",
+    Component: AdminLogin,
   },
   {
     path: "/admin",
