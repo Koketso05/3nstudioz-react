@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Calendar, Clock, MapPin, Users, FileText, CheckCircle } from "lucide-react";
+import { Calendar, Clock, MapPin, Users, FileText, CheckCircle, AlertCircle } from "lucide-react";
 import { Calendar as CalendarComponent } from "../components/Calendar";
+import { supabase } from "../../lib/supabase";
 
 interface BookingFormData {
   serviceType: string;
@@ -29,6 +30,8 @@ export function Booking() {
     notes: "",
   });
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Mock booked dates (in production, this would come from backend)
   const bookedDates = [
@@ -37,28 +40,57 @@ export function Booking() {
     new Date(2026, 3, 20),
   ];
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // In production, this would send data to backend
-    console.log("Booking submitted:", formData);
-    setIsSubmitted(true);
+    setIsLoading(true);
+    setError(null);
 
-    // Reset form after 3 seconds
-    setTimeout(() => {
-      setIsSubmitted(false);
-      setFormData({
-        serviceType: "",
-        eventDate: undefined,
-        fullName: "",
-        phone: "",
-        email: "",
-        location: "",
-        eventType: "",
-        duration: "",
-        numberOfPeople: "",
-        notes: "",
-      });
-    }, 3000);
+    try {
+      const { data, error } = await supabase
+        .from('bookings')
+        .insert([
+          {
+            service_type: formData.serviceType,
+            event_date: formData.eventDate?.toISOString(),
+            full_name: formData.fullName,
+            phone: formData.phone,
+            email: formData.email,
+            location: formData.location,
+            event_type: formData.eventType,
+            duration: formData.duration,
+            number_of_people: formData.numberOfPeople,
+            notes: formData.notes,
+          }
+        ]);
+
+      if (error) {
+        throw error;
+      }
+
+      setIsSubmitted(true);
+
+      // Reset form after 3 seconds
+      setTimeout(() => {
+        setIsSubmitted(false);
+        setFormData({
+          serviceType: "",
+          eventDate: undefined,
+          fullName: "",
+          phone: "",
+          email: "",
+          location: "",
+          eventType: "",
+          duration: "",
+          numberOfPeople: "",
+          notes: "",
+        });
+      }, 3000);
+    } catch (err) {
+      console.error('Error submitting booking:', err);
+      setError(err instanceof Error ? err.message : 'An error occurred while submitting your booking');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const updateFormData = (field: keyof BookingFormData, value: any) => {
@@ -293,10 +325,25 @@ export function Booking() {
 
               <button
                 type="submit"
-                className="w-full mt-6 py-4 bg-yellow-400 text-black hover:bg-yellow-500 transition-colors font-semibold"
+                disabled={isLoading}
+                className="w-full mt-6 py-4 bg-yellow-400 text-black hover:bg-yellow-500 disabled:bg-yellow-400/50 disabled:cursor-not-allowed transition-colors font-semibold flex items-center justify-center gap-2"
               >
-                Submit Booking Request
+                {isLoading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-black/20 border-t-black rounded-full animate-spin"></div>
+                    Submitting...
+                  </>
+                ) : (
+                  "Submit Booking Request"
+                )}
               </button>
+
+              {error && (
+                <div className="mt-4 p-4 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center gap-3">
+                  <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+                  <p className="text-sm text-red-500">{error}</p>
+                </div>
+              )}
 
               <p className="text-xs text-white/50 mt-4 text-center">
                 By submitting, you agree to our terms and conditions
