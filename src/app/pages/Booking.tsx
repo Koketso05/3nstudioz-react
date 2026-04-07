@@ -33,6 +33,53 @@ export function Booking() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const emailServiceId = import.meta.env.VITE_EMAILJS_SERVICE_ID;
+  const emailTemplateId = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
+  const emailPublicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
+
+  const sendBookingNotificationEmail = async (bookingData: BookingFormData) => {
+    if (!emailServiceId || !emailTemplateId || !emailPublicKey) {
+      throw new Error("Missing EmailJS configuration");
+    }
+
+    const response = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        service_id: emailServiceId,
+        template_id: emailTemplateId,
+        user_id: emailPublicKey,
+        template_params: {
+          to_email: "3nstudioz@gmail.com",
+          service_type: bookingData.serviceType,
+          event_date: bookingData.eventDate
+            ? bookingData.eventDate.toLocaleDateString("en-ZA", {
+                weekday: "long",
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              })
+            : "Not selected",
+          full_name: bookingData.fullName,
+          phone: bookingData.phone,
+          email: bookingData.email,
+          location: bookingData.location,
+          event_type: bookingData.eventType,
+          duration: bookingData.duration,
+          number_of_people: bookingData.numberOfPeople,
+          notes: bookingData.notes,
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      throw new Error(`Email send failed: ${response.status} ${errorBody}`);
+    }
+  };
+
   // Mock booked dates (in production, this would come from backend)
   const bookedDates = [
     new Date(2026, 3, 10),
@@ -67,6 +114,7 @@ export function Booking() {
         throw error;
       }
 
+      await sendBookingNotificationEmail(formData);
       setIsSubmitted(true);
 
       // Reset form after 3 seconds
@@ -106,10 +154,10 @@ export function Booking() {
           </div>
           <h2 className="text-3xl mb-4">Booking Received!</h2>
           <p className="text-white/70 mb-8">
-            Thank you for your booking request. We'll review your details and get back to you within 24 hours to confirm availability.
+            Thank you for your booking request. We'll review your details and get back to you within 24 hours.
           </p>
           <p className="text-sm text-white/50">
-            A confirmation email has been sent to {formData.email}
+            Your booking request has been sent to our team at 3NStudioz.
           </p>
         </div>
       </div>
