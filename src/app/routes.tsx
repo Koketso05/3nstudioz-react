@@ -6,7 +6,7 @@ import { Services } from "./pages/Services";
 import { Booking } from "./pages/Booking";
 import { Contact } from "./pages/Contact";
 import { About } from "./pages/About";
-import { AdminLayout } from "./components/AdminLayout";
+import { ProtectedAdminLayout } from "./components/ProtectedAdminLayout";
 import { AdminLogin } from "./pages/admin/Login";
 import { AdminDashboard } from "./pages/admin/Dashboard";
 import { AdminBookings } from "./pages/admin/Bookings";
@@ -34,7 +34,7 @@ export const router = createBrowserRouter([
   },
   {
     path: "/admin",
-    Component: AdminLayout,
+    Component: ProtectedAdminLayout,
     children: [
       { index: true, Component: AdminDashboard },
       { path: "bookings", Component: AdminBookings },

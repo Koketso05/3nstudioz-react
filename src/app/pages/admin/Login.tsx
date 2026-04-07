@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Lock, LogIn } from "lucide-react";
+import { Lock, LogIn, AlertCircle } from "lucide-react";
 import { useNavigate } from "react-router";
+import { supabase } from "../../../lib/supabase";
 
 export function AdminLogin() {
   const [email, setEmail] = useState("");
@@ -9,29 +10,27 @@ export function AdminLogin() {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
-  const defaultAdminEmail = "admin@3nstudioz.com";
-  const defaultAdminPassword = "3nstudioz@2026";
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setIsLoading(true);
 
     try {
-      // Simple authentication (replace with proper backend auth in production)
-      if (email === defaultAdminEmail && password === defaultAdminPassword) {
-        // Store auth token in localStorage
-        localStorage.setItem("adminAuth", JSON.stringify({
-          email,
-          token: btoa(`${email}:${password}`),
-          loginTime: new Date().toISOString(),
-        }));
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      if (data.session) {
         navigate("/admin/bookings");
-      } else {
-        setError("Invalid email or password");
       }
     } catch (err) {
-      setError("An error occurred during login");
+      console.error('Login error:', err);
+      setError(err instanceof Error ? err.message : 'An error occurred during login');
     } finally {
       setIsLoading(false);
     }
@@ -57,9 +56,10 @@ export function AdminLogin() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@3nstudioz.com"
+                placeholder="admin@example.com"
                 required
-                className="w-full px-4 py-3 border border-neutral-300 focus:outline-none focus:border-black"
+                disabled={isLoading}
+                className="w-full px-4 py-3 border border-neutral-300 focus:outline-none focus:border-black disabled:bg-neutral-100"
               />
             </div>
 
@@ -71,13 +71,15 @@ export function AdminLogin() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter your password"
                 required
-                className="w-full px-4 py-3 border border-neutral-300 focus:outline-none focus:border-black"
+                disabled={isLoading}
+                className="w-full px-4 py-3 border border-neutral-300 focus:outline-none focus:border-black disabled:bg-neutral-100"
               />
             </div>
 
             {error && (
-              <div className="p-4 bg-red-500/10 border border-red-500/20 text-red-600 text-sm">
-                {error}
+              <div className="p-4 bg-red-500/10 border border-red-500/20 text-red-600 text-sm flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                <div>{error}</div>
               </div>
             )}
 
@@ -87,12 +89,12 @@ export function AdminLogin() {
               className="w-full py-3 bg-black text-white hover:bg-neutral-800 disabled:bg-neutral-400 transition-colors font-medium flex items-center justify-center gap-2"
             >
               <LogIn className="w-4 h-4" />
-              {isLoading ? "Logging in..." : "Login"}
+              {isLoading ? "Signing in..." : "Login"}
             </button>
           </form>
 
           <p className="text-xs text-neutral-600 text-center mt-6">
-            Demo credentials: admin@3nstudioz.com / 3nstudioz@2026
+            Sign in with your Supabase admin account
           </p>
         </div>
       </div>

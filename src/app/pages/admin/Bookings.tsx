@@ -29,12 +29,18 @@ export function AdminBookings() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const auth = localStorage.getItem("adminAuth");
-    if (!auth) {
-      navigate("/admin/login");
-      return;
-    }
     fetchBookings();
+
+    // Listen for auth state changes to redirect if logged out
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!session) {
+        navigate("/admin/login");
+      }
+    });
+
+    return () => {
+      subscription?.unsubscribe();
+    };
   }, [navigate]);
 
   const fetchBookings = async () => {
@@ -87,9 +93,14 @@ export function AdminBookings() {
     return matchesSearch && matchesStatus;
   });
 
-  const handleLogout = () => {
-    localStorage.removeItem("adminAuth");
-    navigate("/admin/login");
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+      navigate("/admin/login");
+    } catch (err) {
+      console.error('Logout error:', err);
+      navigate("/admin/login");
+    }
   };
 
   const getStatusColor = (confirmed: boolean) => {
