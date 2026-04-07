@@ -120,10 +120,10 @@ export function Home() {
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
             {[
-              "https://images.unsplash.com/photo-1647730346047-649e23e3c7fa?w=600",
-              "https://images.unsplash.com/photo-1575112165295-29b81f5f269e?w=600",
-              "https://images.unsplash.com/photo-1698082386199-fc60bc5b3e42?w=600",
-              "https://images.unsplash.com/photo-1510114941-1dcfb5633651?w=600",
+              "https://res.cloudinary.com/djqvmg7pb/image/upload/v1775557926/711A2748_pr1wck.jpg",
+              "https://res.cloudinary.com/djqvmg7pb/image/upload/v1775562017/711A1976_yymhwv.jpg",
+              "https://res.cloudinary.com/djqvmg7pb/image/upload/v1775562406/711A8567_njpb69.jpg",
+              "https://res.cloudinary.com/djqvmg7pb/image/upload/v1775563403/711A5115_gjmr1t.jpg",
             ].map((img, i) => (
               <div key={i} className="aspect-square overflow-hidden">
                 <ImageWithFallback

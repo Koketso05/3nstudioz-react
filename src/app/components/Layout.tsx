@@ -30,7 +30,7 @@ export function Layout() {
             <Link to="/" className="flex items-center gap-3">
               <div className="w-10 h-full bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-lg flex items-center justify-center overflow-hidden">
                 <img
-                  src="https://res.cloudinary.com/djqvmg7pb/image/upload/v1775558347/LOGO_1_ewbun9.png"
+                  src="https://res.cloudinary.com/djqvmg7pb/image/upload/v1775561534/LOGO_1_cmx2wn.png"
                   alt="3NStudioz Logo"
                   className="w-full h-10 object-contain"
                 />
@@ -101,9 +101,9 @@ export function Layout() {
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-8 h-8 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-lg flex items-center justify-center overflow-hidden">
                   <img
-                    src="https://via.placeholder.com/32x32/000000/ffffff?text=3N"
+                    src="https://res.cloudinary.com/djqvmg7pb/image/upload/v1775561534/LOGO_1_cmx2wn.png"
                     alt="3NStudioz Logo"
-                    className="w-5 h-5 object-contain"
+                    className="w-full h-full object-contain"
                   />
                 </div>
                 <span className="text-xl font-bold">3NStudioz</span>
