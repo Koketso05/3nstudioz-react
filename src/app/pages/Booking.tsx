@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Calendar, Clock, MapPin, Users, FileText, CheckCircle, AlertCircle } from "lucide-react";
 import { Calendar as CalendarComponent } from "../components/Calendar";
 import { supabase } from "../../lib/supabase";
@@ -32,10 +32,39 @@ export function Booking() {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [bookedDates, setBookedDates] = useState<Date[]>([]);
 
   const emailServiceId = import.meta.env.VITE_EMAILJS_SERVICE_ID;
   const emailTemplateId = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
   const emailPublicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
+
+  useEffect(() => {
+    const fetchBookedDates = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('bookings')
+          .select('event_date')
+          .not('event_date', 'is', null)
+          .eq('confirmed', true);
+
+        if (error) {
+          console.error('Error fetching booked dates:', error);
+          return;
+        }
+
+        if (data) {
+          const dates = data
+            .map(booking => booking.event_date ? new Date(booking.event_date) : null)
+            .filter(date => date !== null) as Date[];
+          setBookedDates(dates);
+        }
+      } catch (err) {
+        console.error('Error fetching booked dates:', err);
+      }
+    };
+
+    fetchBookedDates();
+  }, []);
 
   const sendBookingNotificationEmail = async (bookingData: BookingFormData) => {
     if (!emailServiceId || !emailTemplateId || !emailPublicKey) {
@@ -80,13 +109,6 @@ export function Booking() {
     }
   };
 
-  // Mock booked dates (in production, this would come from backend)
-  const bookedDates = [
-    new Date(2026, 3, 10),
-    new Date(2026, 3, 15),
-    new Date(2026, 3, 20),
-  ];
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -116,6 +138,20 @@ export function Booking() {
 
       await sendBookingNotificationEmail(formData);
       setIsSubmitted(true);
+
+      // Refresh booked dates to include the new booking
+      const { data: updatedData } = await supabase
+        .from('bookings')
+        .select('event_date')
+        .not('event_date', 'is', null)
+        .eq('confirmed', true);
+
+      if (updatedData) {
+        const dates = updatedData
+          .map(booking => booking.event_date ? new Date(booking.event_date) : null)
+          .filter(date => date !== null) as Date[];
+        setBookedDates(dates);
+      }
 
       // Reset form after 3 seconds
       setTimeout(() => {
