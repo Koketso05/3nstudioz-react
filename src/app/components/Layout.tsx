@@ -15,6 +15,8 @@ export function Layout() {
     { path: "/contact", label: "Contact" },
   ];
 
+  const adminLink = { path: "/admin/login", label: "Admin Login" };
+
   const isActive = (path: string) => {
     if (path === "/") return location.pathname === "/";
     return location.pathname.startsWith(path);
@@ -53,6 +55,13 @@ export function Layout() {
                   {link.label}
                 </Link>
               ))}
+              {/* Admin Login Link */}
+              <Link
+                to={adminLink.path}
+                className="ml-8 px-4 py-2 bg-yellow-400 text-black rounded-lg hover:bg-yellow-500 transition-colors font-medium"
+              >
+                {adminLink.label}
+              </Link>
             </div>
 
             {/* Mobile Menu Button */}
@@ -83,6 +92,14 @@ export function Layout() {
                   {link.label}
                 </Link>
               ))}
+              {/* Admin Login Link */}
+              <Link
+                to={adminLink.path}
+                onClick={() => setMobileMenuOpen(false)}
+                className="block py-2 px-4 bg-yellow-400 text-black rounded-lg font-medium"
+              >
+                {adminLink.label}
+              </Link>
             </div>
           </div>
         )}
