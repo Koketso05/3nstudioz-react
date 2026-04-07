@@ -3,8 +3,8 @@ import { ImageWithFallback } from "../components/figma/ImageWithFallback";
 
 export function About() {
   const stats = [
-    { number: "500+", label: "Events Covered" },
-    { number: "1000+", label: "Happy Clients" },
+    { number: "60+", label: "Events Covered" },
+    { number: "45+", label: "Happy Clients" },
     { number: "50k+", label: "Photos Captured" },
     { number: "8+", label: "Years Experience" },
   ];
@@ -32,7 +32,7 @@ export function About() {
       icon: Award,
       title: "Award-Winning",
       description:
-        "Recognized for excellence in photography and videography across South Africa.",
+        "Recognized by our for excellence in photography and videography across South Africa.",
     },
   ];
 
