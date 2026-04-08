@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, Filter, Calendar, Mail, Phone, MapPin, Clock, Users, Check, X, LogOut } from "lucide-react";
+import { Search, Filter, Calendar, Mail, Phone, MapPin, Clock, Users, Check, X } from "lucide-react";
 import { useNavigate } from "react-router";
 import { supabase } from "../../../lib/supabase";
 
@@ -93,16 +93,6 @@ export function AdminBookings() {
     return matchesSearch && matchesStatus;
   });
 
-  const handleLogout = async () => {
-    try {
-      await supabase.auth.signOut();
-      navigate("/admin/login");
-    } catch (err) {
-      console.error('Logout error:', err);
-      navigate("/admin/login");
-    }
-  };
-
   const getStatusColor = (confirmed: boolean) => {
     return confirmed
       ? "bg-green-500/10 text-green-600 border-green-500/20"
@@ -127,13 +117,6 @@ export function AdminBookings() {
           <h1 className="text-3xl font-bold mb-2">Bookings Management</h1>
           <p className="text-neutral-600">View and manage all booking requests</p>
         </div>
-        <button
-          onClick={handleLogout}
-          className="flex items-center gap-2 px-4 py-2 bg-neutral-200 hover:bg-neutral-300 transition-colors"
-        >
-          <LogOut className="w-4 h-4" />
-          Logout
-        </button>
       </div>
 
       {error && (
