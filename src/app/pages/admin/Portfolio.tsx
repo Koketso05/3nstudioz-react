@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Upload, Trash2, Edit, Image as ImageIcon, Video } from "lucide-react";
+import { supabase } from "../../../lib/supabase";
 
 interface PortfolioItem {
   id: number;
@@ -12,6 +13,13 @@ interface PortfolioItem {
 
 export function AdminPortfolio() {
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [categories, setCategories] = useState<string[]>(["all"]);
+
+  useEffect(() => {
+    if (!categories.includes(selectedCategory)) {
+      setSelectedCategory("all");
+    }
+  }, [categories, selectedCategory]);
 
   const portfolioItems: PortfolioItem[] = [
     {
@@ -48,12 +56,34 @@ export function AdminPortfolio() {
     },
   ];
 
-  const categories = ["all", "weddings", "events", "portraits", "corporate"];
-
   const filteredItems =
     selectedCategory === "all"
       ? portfolioItems
       : portfolioItems.filter((item) => item.category === selectedCategory);
+
+  const fetchCategories = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('portfolio_items')
+        .select('category')
+        .neq('category', '')
+        .order('category', { ascending: true });
+
+      if (error) {
+        throw error;
+      }
+
+      const fetchedCategories = data?.map((item) => item.category).filter(Boolean) ?? [];
+      setCategories(['all', ...Array.from(new Set(fetchedCategories))]);
+    } catch (error) {
+      console.error('Error fetching portfolio categories:', error);
+      setCategories(["all", "weddings", "events", "portraits", "corporate"]);
+    }
+  };
+
+  useEffect(() => {
+    fetchCategories();
+  }, []);
 
   const handleUpload = () => {
     console.log("Upload triggered");
