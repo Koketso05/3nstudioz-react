@@ -1,137 +1,69 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X, Play } from "lucide-react";
 import { ImageWithFallback } from "../components/figma/ImageWithFallback";
+import { supabase } from "../../lib/supabase";
 
-type Category = "all" | "weddings" | "events" | "portraits" | "corporate";
+type Category = "all" | string;
 
 interface PortfolioItem {
-  id: number;
-  category: Category[];
-  type: "image" | "video";
-  src: string;
-  thumbnail: string;
+  id: string;
   title: string;
+  category: string;
+  type: "image" | "video";
+  url: string;
+  uploadedAt: string;
 }
-
-const portfolioItems: PortfolioItem[] = [
-  // Weddings
-  {
-    id: 1,
-    category: ["weddings"],
-    type: "image",
-    src: "https://images.unsplash.com/photo-1647730346047-649e23e3c7fa?w=1920",
-    thumbnail: "https://images.unsplash.com/photo-1647730346047-649e23e3c7fa?w=600",
-    title: "Wedding Couple Portrait",
-  },
-  {
-    id: 2,
-    category: ["weddings"],
-    type: "image",
-    src: "https://images.unsplash.com/photo-1698082386199-fc60bc5b3e42?w=1920",
-    thumbnail: "https://images.unsplash.com/photo-1698082386199-fc60bc5b3e42?w=600",
-    title: "Traditional Wedding",
-  },
-  {
-    id: 3,
-    category: ["weddings"],
-    type: "image",
-    src: "https://images.unsplash.com/photo-1613067532577-736f72dcbae3?w=1920",
-    thumbnail: "https://images.unsplash.com/photo-1613067532577-736f72dcbae3?w=600",
-    title: "Wedding Kiss",
-  },
-  {
-    id: 4,
-    category: ["weddings"],
-    type: "image",
-    src: "https://images.unsplash.com/photo-1686294587476-89759f386382?w=1920",
-    thumbnail: "https://images.unsplash.com/photo-1686294587476-89759f386382?w=600",
-    title: "Outdoor Wedding",
-  },
-  // Events
-  {
-    id: 5,
-    category: ["events"],
-    type: "image",
-    src: "https://images.unsplash.com/photo-1575112165295-29b81f5f269e?w=1920",
-    thumbnail: "https://images.unsplash.com/photo-1575112165295-29b81f5f269e?w=600",
-    title: "Concert Performance",
-  },
-  {
-    id: 6,
-    category: ["events"],
-    type: "image",
-    src: "https://images.unsplash.com/photo-1510114941-1dcfb5633651?w=1920",
-    thumbnail: "https://images.unsplash.com/photo-1510114941-1dcfb5633651?w=600",
-    title: "DJ Event",
-  },
-  {
-    id: 7,
-    category: ["events"],
-    type: "image",
-    src: "https://images.unsplash.com/photo-1694720274936-298495c4dc8a?w=1920",
-    thumbnail: "https://images.unsplash.com/photo-1694720274936-298495c4dc8a?w=600",
-    title: "Stage Performance",
-  },
-  {
-    id: 8,
-    category: ["events"],
-    type: "image",
-    src: "https://images.unsplash.com/photo-1612389930565-6975454dc7cc?w=1920",
-    thumbnail: "https://images.unsplash.com/photo-1612389930565-6975454dc7cc?w=600",
-    title: "Night Concert",
-  },
-  // Portraits
-  {
-    id: 9,
-    category: ["portraits"],
-    type: "image",
-    src: "https://images.unsplash.com/photo-1532272278764-53cd1fe53f72?w=1920",
-    thumbnail: "https://images.unsplash.com/photo-1532272278764-53cd1fe53f72?w=600",
-    title: "Professional Portrait",
-  },
-  {
-    id: 10,
-    category: ["portraits"],
-    type: "image",
-    src: "https://images.unsplash.com/photo-1659303388076-de1535159d6c?w=1920",
-    thumbnail: "https://images.unsplash.com/photo-1659303388076-de1535159d6c?w=600",
-    title: "Sports Portrait",
-  },
-  // Corporate
-  {
-    id: 11,
-    category: ["corporate"],
-    type: "image",
-    src: "https://images.unsplash.com/photo-1603201667493-4c2696de0b1f?w=1920",
-    thumbnail: "https://images.unsplash.com/photo-1603201667493-4c2696de0b1f?w=600",
-    title: "Corporate Office",
-  },
-  {
-    id: 12,
-    category: ["corporate"],
-    type: "image",
-    src: "https://images.unsplash.com/photo-1641260783083-a0af6cf964ca?w=1920",
-    thumbnail: "https://images.unsplash.com/photo-1641260783083-a0af6cf964ca?w=600",
-    title: "Executive Portrait",
-  },
-];
 
 export function Portfolio() {
   const [selectedCategory, setSelectedCategory] = useState<Category>("all");
   const [lightboxImage, setLightboxImage] = useState<PortfolioItem | null>(null);
+  const [portfolioItems, setPortfolioItems] = useState<PortfolioItem[]>([]);
+  const [categories, setCategories] = useState<Category[]>(["all"]);
+  const [loading, setLoading] = useState(true);
 
-  const categories = [
-    { id: "all" as Category, label: "All" },
-    { id: "weddings" as Category, label: "Weddings" },
-    { id: "events" as Category, label: "Events" },
-    { id: "portraits" as Category, label: "Portraits" },
-    { id: "corporate" as Category, label: "Corporate" },
-  ];
+  useEffect(() => {
+    fetchPortfolioItems();
+  }, []);
+
+  const fetchPortfolioItems = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("portfolio_items")
+        .select("*")
+        .order("uploadedAt", { ascending: false });
+
+      if (error) throw error;
+
+      const items = (data as PortfolioItem[]) || [];
+      setPortfolioItems(items);
+
+      // Extract unique categories
+      const uniqueCategories = Array.from(new Set(items.map(item => item.category)));
+      setCategories(["all", ...uniqueCategories]);
+    } catch (error) {
+      console.error("Error fetching portfolio items:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredItems =
     selectedCategory === "all"
       ? portfolioItems
-      : portfolioItems.filter((item) => item.category.includes(selectedCategory));
+      : portfolioItems.filter((item) => item.category === selectedCategory);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen py-16 px-4">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-12">
+            <h1 className="text-5xl md:text-6xl mb-4">Portfolio</h1>
+            <p className="text-white/60 text-lg">Loading portfolio...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen py-16 px-4">
@@ -148,15 +80,15 @@ export function Portfolio() {
         <div className="flex flex-wrap justify-center gap-4 mb-12">
           {categories.map((category) => (
             <button
-              key={category.id}
-              onClick={() => setSelectedCategory(category.id)}
-              className={`px-6 py-3 transition-all ${
-                selectedCategory === category.id
+              key={category}
+              onClick={() => setSelectedCategory(category)}
+              className={`px-6 py-3 transition-all capitalize ${
+                selectedCategory === category
                   ? "bg-yellow-400 text-black"
                   : "bg-white/10 hover:bg-white/20 text-white border border-white/20"
               }`}
             >
-              {category.label}
+              {category === "all" ? "All" : category}
             </button>
           ))}
         </div>
@@ -170,7 +102,7 @@ export function Portfolio() {
               onClick={() => setLightboxImage(item)}
             >
               <ImageWithFallback
-                src={item.thumbnail}
+                src={item.url}
                 alt={item.title}
                 className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
               />
@@ -178,17 +110,13 @@ export function Portfolio() {
                 <div>
                   <p className="text-white font-semibold">{item.title}</p>
                   <p className="text-white/60 text-sm capitalize">
-                    {item.category.join(", ")}
+                    {item.category}
                   </p>
                 </div>
+                {item.type === "video" && (
+                  <Play className="absolute top-4 right-4 w-8 h-8 text-white" />
+                )}
               </div>
-              {item.type === "video" && (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center">
-                    <Play className="w-8 h-8 text-white ml-1" />
-                  </div>
-                </div>
-              )}
             </div>
           ))}
         </div>
@@ -214,14 +142,14 @@ export function Portfolio() {
           </button>
           <div className="max-w-6xl w-full" onClick={(e) => e.stopPropagation()}>
             <ImageWithFallback
-              src={lightboxImage.src}
+              src={lightboxImage.url}
               alt={lightboxImage.title}
               className="w-full h-auto max-h-[90vh] object-contain"
             />
             <div className="text-center mt-6">
               <p className="text-white text-xl mb-2">{lightboxImage.title}</p>
               <p className="text-white/60 capitalize">
-                {lightboxImage.category.join(", ")}
+                {lightboxImage.category}
               </p>
             </div>
           </div>

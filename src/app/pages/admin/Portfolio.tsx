@@ -1,19 +1,33 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, type ChangeEvent } from "react";
 import { Upload, Trash2, Edit, Image as ImageIcon, Video } from "lucide-react";
 import { supabase } from "../../../lib/supabase";
 
 interface PortfolioItem {
-  id: number;
+  id: string;
   title: string;
   category: string;
   type: "image" | "video";
   url: string;
-  uploadedAt: string;
+  uploaded_at: string;
 }
 
 export function AdminPortfolio() {
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [categories, setCategories] = useState<string[]>(["all"]);
+  const [portfolioItems, setPortfolioItems] = useState<PortfolioItem[]>([]);
+  const [selectedType, setSelectedType] = useState<"image" | "video">("image");
+  const [title, setTitle] = useState("");
+  const [categoryInput, setCategoryInput] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [fileName, setFileName] = useState("");
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const displayedItems = portfolioItems;
+  const filteredItems =
+    selectedCategory === "all"
+      ? displayedItems
+      : displayedItems.filter((item) => item.category === selectedCategory);
 
   useEffect(() => {
     if (!categories.includes(selectedCategory)) {
@@ -21,82 +35,161 @@ export function AdminPortfolio() {
     }
   }, [categories, selectedCategory]);
 
-  const portfolioItems: PortfolioItem[] = [
-    {
-      id: 1,
-      title: "Wedding Portrait",
-      category: "weddings",
-      type: "image",
-      url: "https://images.unsplash.com/photo-1647730346047-649e23e3c7fa?w=400",
-      uploadedAt: "2026-03-15",
-    },
-    {
-      id: 2,
-      title: "Concert Performance",
-      category: "events",
-      type: "image",
-      url: "https://images.unsplash.com/photo-1575112165295-29b81f5f269e?w=400",
-      uploadedAt: "2026-03-10",
-    },
-    {
-      id: 3,
-      title: "Professional Portrait",
-      category: "portraits",
-      type: "image",
-      url: "https://images.unsplash.com/photo-1532272278764-53cd1fe53f72?w=400",
-      uploadedAt: "2026-03-05",
-    },
-    {
-      id: 4,
-      title: "Corporate Office",
-      category: "corporate",
-      type: "image",
-      url: "https://images.unsplash.com/photo-1603201667493-4c2696de0b1f?w=400",
-      uploadedAt: "2026-03-01",
-    },
-  ];
+  useEffect(() => {
+    fetchPortfolioItems();
+    fetchCategories();
+  }, []);
 
-  const filteredItems =
-    selectedCategory === "all"
-      ? portfolioItems
-      : portfolioItems.filter((item) => item.category === selectedCategory);
-
-  const fetchCategories = async () => {
+  const fetchPortfolioItems = async () => {
     try {
       const { data, error } = await supabase
-        .from('portfolio_items')
-        .select('category')
-        .neq('category', '')
-        .order('category', { ascending: true });
+        .from("portfolio_items")
+        .select("*")
+        .order("uploaded_at", { ascending: false });
 
       if (error) {
         throw error;
       }
 
-      const fetchedCategories = data?.map((item) => item.category).filter(Boolean) ?? [];
-      setCategories(['all', ...Array.from(new Set(fetchedCategories))]);
+      setPortfolioItems((data as PortfolioItem[]) || []);
     } catch (error) {
-      console.error('Error fetching portfolio categories:', error);
+      console.error("Error fetching portfolio items:", error);
+    }
+  };
+
+  const fetchCategories = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("portfolio_items")
+        .select("category")
+        .neq("category", "")
+        .order("category", { ascending: true });
+
+      if (error) {
+        throw error;
+      }
+
+      const fetchedCategories = (data as { category: string }[])
+        ?.map((item) => item.category)
+        .filter(Boolean) ?? [];
+
+      setCategories(["all", ...Array.from(new Set(fetchedCategories))]);
+    } catch (error) {
+      console.error("Error fetching portfolio categories:", error);
       setCategories(["all", "weddings", "events", "portraits", "corporate"]);
     }
   };
 
-  useEffect(() => {
-    fetchCategories();
-  }, []);
-
-  const handleUpload = () => {
-    console.log("Upload triggered");
-    // In production, this would open a file picker
+  const openUploadPicker = (type: "image" | "video") => {
+    setSelectedType(type);
+    setUploadError(null);
+    setFileName("");
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+      fileInputRef.current.click();
+    }
   };
 
-  const handleDelete = (id: number) => {
-    console.log(`Delete item ${id}`);
-    // In production, this would delete from backend
+  const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const expectedPrefix = selectedType === "image" ? "image/" : "video/";
+    if (!file.type.startsWith(expectedPrefix)) {
+      setUploadError(`Please select a ${selectedType} file.`);
+      return;
+    }
+
+    setFileName(file.name);
+    await uploadPortfolioItem(file);
+  };
+
+  const uploadPortfolioItem = async (file: File) => {
+    setUploading(true);
+    setUploadError(null);
+
+    try {
+      const path = `${selectedType}s/${Date.now()}_${file.name}`;
+      const { error: uploadError } = await supabase.storage
+        .from("portfolio")
+        .upload(path, file, { cacheControl: "3600", upsert: false });
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      const { data: publicUrlData, error: publicUrlError } = supabase.storage
+        .from("portfolio")
+        .getPublicUrl(path);
+
+      if (publicUrlError) {
+        throw publicUrlError;
+      }
+
+      const url = publicUrlData?.publicUrl;
+      if (!url) {
+        throw new Error("Unable to generate public URL for uploaded file.");
+      }
+
+      const newTitle = title.trim() || file.name;
+      const newCategory = categoryInput.trim() || "uncategorized";
+      const uploadedAt = new Date().toISOString().slice(0, 10);
+
+      const { data, error: insertError } = await supabase
+        .from("portfolio_items")
+        .insert([
+          {
+            title: newTitle,
+            category: newCategory,
+            type: selectedType,
+            url,
+            uploaded_at: uploadedAt,
+          },
+        ])
+        .select()
+        .single();
+
+      if (insertError) {
+        throw insertError;
+      }
+
+      setPortfolioItems((current) => [data as PortfolioItem, ...current]);
+      if (!categories.includes(newCategory)) {
+        setCategories((current) => [...current, newCategory]);
+      }
+
+      setSelectedCategory("all");
+      setTitle("");
+      setCategoryInput("");
+      setFileName("");
+    } catch (error) {
+      console.error("Upload error:", error);
+      setUploadError(error instanceof Error ? error.message : "Upload failed.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      const { error } = await supabase.from("portfolio_items").delete().eq("id", id);
+      if (error) throw error;
+      setPortfolioItems((current) => current.filter((item) => item.id !== id));
+    } catch (error) {
+      console.error("Delete portfolio item error:", error);
+    }
   };
 
   return (
     <div>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept={selectedType === "image" ? "image/*" : "video/*"}
+        className="hidden"
+        onChange={handleFileChange}
+      />
+
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">Portfolio Management</h1>
         <p className="text-neutral-600">Upload and manage your portfolio items</p>
@@ -105,25 +198,65 @@ export function AdminPortfolio() {
       {/* Upload Section */}
       <div className="bg-white border border-neutral-200 p-6 mb-6">
         <h2 className="text-xl font-semibold mb-4">Upload New Content</h2>
+        <div className="grid gap-4 md:grid-cols-3 mb-4">
+          <div className="space-y-2 md:col-span-1">
+            <label className="block text-sm font-medium text-neutral-700">Title</label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Example: Beach Wedding"
+              className="w-full border border-neutral-300 rounded-lg px-4 py-2 focus:outline-none focus:border-black"
+            />
+          </div>
+          <div className="space-y-2 md:col-span-1">
+            <label className="block text-sm font-medium text-neutral-700">Category</label>
+            <input
+              type="text"
+              value={categoryInput}
+              onChange={(e) => setCategoryInput(e.target.value)}
+              placeholder="Example: weddings"
+              className="w-full border border-neutral-300 rounded-lg px-4 py-2 focus:outline-none focus:border-black"
+            />
+          </div>
+          <div className="space-y-2 md:col-span-1">
+            <label className="block text-sm font-medium text-neutral-700">Selected file</label>
+            <div className="rounded-lg border border-neutral-300 px-4 py-3 text-sm text-neutral-600">
+              {fileName || "No file selected yet"}
+            </div>
+          </div>
+        </div>
+
         <div className="flex flex-col md:flex-row gap-4">
           <button
-            onClick={handleUpload}
+            type="button"
+            onClick={() => openUploadPicker("image")}
             className="flex items-center justify-center gap-2 px-6 py-3 bg-black text-white hover:bg-neutral-800 transition-colors"
+            disabled={uploading}
           >
             <Upload className="w-5 h-5" />
-            Upload Photos
+            Upload Photo
           </button>
           <button
-            onClick={handleUpload}
+            type="button"
+            onClick={() => openUploadPicker("video")}
             className="flex items-center justify-center gap-2 px-6 py-3 border border-neutral-300 hover:bg-neutral-50 transition-colors"
+            disabled={uploading}
           >
             <Video className="w-5 h-5" />
-            Upload Videos
+            Upload Video
           </button>
           <div className="flex-1 flex items-center text-sm text-neutral-600">
             <p>Supported formats: JPG, PNG, MP4, MOV • Max size: 50MB</p>
           </div>
         </div>
+
+        {uploadError && (
+          <p className="mt-4 text-sm text-red-600">{uploadError}</p>
+        )}
+        {uploading && (
+          <p className="mt-4 text-sm text-neutral-600">Uploading file, please wait...</p>
+        )}
       </div>
 
       {/* Category Filter */}
@@ -180,7 +313,7 @@ export function AdminPortfolio() {
               <h3 className="font-semibold mb-1">{item.title}</h3>
               <div className="flex items-center justify-between text-sm text-neutral-600">
                 <span className="capitalize">{item.category}</span>
-                <span>{new Date(item.uploadedAt).toLocaleDateString()}</span>
+                <span>{new Date(item.uploaded_at).toLocaleDateString()}</span>
               </div>
             </div>
           </div>
@@ -190,13 +323,13 @@ export function AdminPortfolio() {
       {filteredItems.length === 0 && (
         <div className="bg-white border border-neutral-200 p-12 text-center">
           <ImageIcon className="w-12 h-12 text-neutral-400 mx-auto mb-4" />
-          <p className="text-neutral-600 mb-4">No items found in this category</p>
+          <p className="text-neutral-600 mb-4">No portfolio items found in this category</p>
           <button
-            onClick={handleUpload}
+            onClick={() => openUploadPicker("image")}
             className="inline-flex items-center gap-2 px-6 py-3 bg-black text-white hover:bg-neutral-800 transition-colors"
           >
             <Upload className="w-5 h-5" />
-            Upload Content
+            Upload Your First Content
           </button>
         </div>
       )}
@@ -204,18 +337,18 @@ export function AdminPortfolio() {
       {/* Statistics */}
       <div className="grid md:grid-cols-4 gap-6 mt-6">
         <div className="bg-white border border-neutral-200 p-6">
-          <div className="text-3xl font-bold mb-2">{portfolioItems.length}</div>
+          <div className="text-3xl font-bold mb-2">{displayedItems.length}</div>
           <div className="text-sm text-neutral-600">Total Items</div>
         </div>
         <div className="bg-white border border-neutral-200 p-6">
           <div className="text-3xl font-bold mb-2">
-            {portfolioItems.filter((i) => i.type === "image").length}
+            {displayedItems.filter((i) => i.type === "image").length}
           </div>
           <div className="text-sm text-neutral-600">Photos</div>
         </div>
         <div className="bg-white border border-neutral-200 p-6">
           <div className="text-3xl font-bold mb-2">
-            {portfolioItems.filter((i) => i.type === "video").length}
+            {displayedItems.filter((i) => i.type === "video").length}
           </div>
           <div className="text-sm text-neutral-600">Videos</div>
         </div>
