@@ -1,5 +1,6 @@
 import { Outlet, Link, useLocation } from "react-router";
 import { Camera, LayoutDashboard, Calendar, Image, Package, FileText } from "lucide-react";
+import { AnalyticsListener } from "./AnalyticsListener";
 
 export function AdminLayout() {
   const location = useLocation();
@@ -19,6 +20,7 @@ export function AdminLayout() {
 
   return (
     <div className="min-h-screen bg-neutral-50">
+      <AnalyticsListener />
       {/* Header */}
       <header className="bg-black text-white border-b border-white/10">
         <div className="flex items-center justify-between px-6 py-4">
