@@ -26,19 +26,19 @@ export function Contact() {
     {
       icon: Phone,
       title: "Phone",
-      value: "+27 123 456 789",
-      link: "tel:+27123456789",
+      value: "+27 76 123 2491",
+      link: "tel:+27761232491",
     },
     {
       icon: Mail,
       title: "Email",
-      value: "info@3nstudioz.co.za",
-      link: "mailto:info@3nstudioz.co.za",
+      value: "3nstudioz@gmail.com",
+      link: "mailto:3nstudioz@gmail.com",
     },
     {
       icon: MapPin,
       title: "Location",
-      value: "Johannesburg, South Africa",
+      value: "Pretoria, South Africa",
       link: null,
     },
   ];
@@ -104,7 +104,7 @@ export function Contact() {
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                     className="w-full px-4 py-3 bg-neutral-900 border border-white/20 text-white focus:outline-none focus:border-yellow-400"
-                    placeholder="+27 123 456 789"
+                    placeholder="+27 76 123 2491"
                   />
                 </div>
 

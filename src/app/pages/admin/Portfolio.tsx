@@ -313,7 +313,12 @@ export function AdminPortfolio() {
               <h3 className="font-semibold mb-1">{item.title}</h3>
               <div className="flex items-center justify-between text-sm text-neutral-600">
                 <span className="capitalize">{item.category}</span>
-                <span>{new Date(item.uploaded_at).toLocaleDateString()}</span>
+                <span>
+                  {item.uploaded_at
+                    ? new Date(item.uploaded_at).toLocaleDateString()
+                    : "No date"
+                  }
+                </span>
               </div>
             </div>
           </div>
