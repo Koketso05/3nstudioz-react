@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Mail, Phone, MapPin, MessageSquare, Send, CheckCircle } from "lucide-react";
 import { FaWhatsapp, FaInstagram, FaFacebook, FaTwitter } from "react-icons/fa";
+import { supabase } from "../../lib/supabase";
 
 export function Contact() {
   const [formData, setFormData] = useState({
@@ -10,16 +11,30 @@ export function Contact() {
     message: "",
   });
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Contact form submitted:", formData);
-    setIsSubmitted(true);
+    setIsLoading(true);
+    setSubmitError(null);
 
-    setTimeout(() => {
-      setIsSubmitted(false);
+    try {
+      const { error } = await supabase.functions.invoke("send-contact-email", {
+        body: formData,
+      });
+
+      if (error) throw new Error(error.message);
+
+      setIsSubmitted(true);
       setFormData({ name: "", email: "", phone: "", message: "" });
-    }, 3000);
+    } catch (err) {
+      setSubmitError(
+        err instanceof Error ? err.message : "Failed to send message. Please try again."
+      );
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const contactInfo = [
@@ -124,11 +139,28 @@ export function Contact() {
 
                 <button
                   type="submit"
+                  disabled={isLoading}
                   className="w-full py-4 bg-yellow-400 text-black hover:bg-yellow-500 transition-colors font-semibold flex items-center justify-center gap-2"
                 >
-                  <Send className="w-5 h-5" />
-                  Send Message
+                  {isLoading ? (
+                    <>
+                      <svg className="animate-spin w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                      </svg>
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-5 h-5" />
+                      Send Message
+                    </>
+                  )}
                 </button>
+
+                {submitError && (
+                  <p className="text-sm text-red-400 text-center">{submitError}</p>
+                )}
               </form>
             )}
           </div>
