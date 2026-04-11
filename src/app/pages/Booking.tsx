@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useLocation } from "react-router";
 import { Calendar, Clock, MapPin, Users, FileText, CheckCircle, AlertCircle } from "lucide-react";
 import { Calendar as CalendarComponent } from "../components/Calendar";
 import { supabase } from "../../lib/supabase";
@@ -16,7 +17,18 @@ interface BookingFormData {
   notes: string;
 }
 
+interface BookingPrefillState {
+  prefill?: {
+    serviceType?: string;
+    duration?: string;
+    notes?: string;
+  };
+}
+
 export function Booking() {
+  const location = useLocation();
+  const bookingState = location.state as BookingPrefillState | null;
+
   const [formData, setFormData] = useState<BookingFormData>({
     serviceType: "",
     eventDate: undefined,
@@ -35,9 +47,17 @@ export function Booking() {
   const [bookedDates, setBookedDates] = useState<Date[]>([]);
   const [blockedDates, setBlockedDates] = useState<Date[]>([]);
 
-  const emailServiceId = import.meta.env.VITE_EMAILJS_SERVICE_ID;
-  const emailTemplateId = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
-  const emailPublicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
+  useEffect(() => {
+    const prefill = bookingState?.prefill;
+    if (!prefill) return;
+
+    setFormData((prev) => ({
+      ...prev,
+      serviceType: prefill.serviceType ?? prev.serviceType,
+      duration: prefill.duration ?? prev.duration,
+      notes: prefill.notes ?? prev.notes,
+    }));
+  }, [bookingState]);
 
   useEffect(() => {
     const fetchUnavailableDates = async () => {
@@ -80,45 +100,30 @@ export function Booking() {
   }, []);
 
   const sendBookingNotificationEmail = async (bookingData: BookingFormData) => {
-    if (!emailServiceId || !emailTemplateId || !emailPublicKey) {
-      throw new Error("Missing EmailJS configuration");
-    }
-
-    const response = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
+    const { error: functionError } = await supabase.functions.invoke("send-booking-email", {
+      body: {
+        serviceType: bookingData.serviceType,
+        eventDate: bookingData.eventDate
+          ? bookingData.eventDate.toLocaleDateString("en-ZA", {
+              weekday: "long",
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            })
+          : "Not selected",
+        fullName: bookingData.fullName,
+        phone: bookingData.phone,
+        email: bookingData.email,
+        location: bookingData.location,
+        eventType: bookingData.eventType,
+        duration: bookingData.duration,
+        numberOfPeople: bookingData.numberOfPeople,
+        notes: bookingData.notes,
       },
-      body: JSON.stringify({
-        service_id: emailServiceId,
-        template_id: emailTemplateId,
-        user_id: emailPublicKey,
-        template_params: {
-          to_email: "3nstudioz@gmail.com",
-          service_type: bookingData.serviceType,
-          event_date: bookingData.eventDate
-            ? bookingData.eventDate.toLocaleDateString("en-ZA", {
-                weekday: "long",
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-              })
-            : "Not selected",
-          full_name: bookingData.fullName,
-          phone: bookingData.phone,
-          email: bookingData.email,
-          location: bookingData.location,
-          event_type: bookingData.eventType,
-          duration: bookingData.duration,
-          number_of_people: bookingData.numberOfPeople,
-          notes: bookingData.notes,
-        },
-      }),
     });
 
-    if (!response.ok) {
-      const errorBody = await response.text();
-      throw new Error(`Email send failed: ${response.status} ${errorBody}`);
+    if (functionError) {
+      throw new Error(functionError.message);
     }
   };
 

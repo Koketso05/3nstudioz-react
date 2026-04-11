@@ -16,6 +16,19 @@ interface Service {
   }[];
 }
 
+const durationToBookingValue = (duration: string): string => {
+  const normalized = duration.toLowerCase();
+
+  if (normalized.includes("1") && normalized.includes("2")) return "1-2";
+  if (normalized.includes("2") && normalized.includes("3")) return "2-4";
+  if (normalized.includes("2") && normalized.includes("4")) return "2-4";
+  if (normalized.includes("4") && normalized.includes("6")) return "4-6";
+  if (normalized.includes("6") && normalized.includes("8")) return "6-8";
+  if (normalized.includes("full day") || normalized.includes("unlimited")) return "full-day";
+
+  return "";
+};
+
 const services: Service[] = [
   {
     id: "photography",
@@ -216,6 +229,13 @@ export function Services() {
                     </ul>
                     <Link
                       to="/booking"
+                      state={{
+                        prefill: {
+                          serviceType: service.id,
+                          duration: durationToBookingValue(pkg.duration),
+                          notes: `Selected package: ${service.title} - ${pkg.name} (${pkg.price})`,
+                        },
+                      }}
                       className={`w-full py-3 text-center transition-colors ${
                         service.packages.indexOf(pkg) === 1
                           ? "bg-yellow-400 text-black hover:bg-yellow-500"
