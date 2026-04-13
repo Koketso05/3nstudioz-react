@@ -1,7 +1,10 @@
 import { useState, useEffect } from "react";
-import { Search, Filter, Calendar, Mail, Phone, MapPin, Clock, Users, Check, X } from "lucide-react";
+import { Search, Filter, Calendar, Mail, Phone, MapPin, Clock, Users, Check, X, Pencil, Trash2, Plus } from "lucide-react";
 import { useNavigate } from "react-router";
 import { supabase } from "../../../lib/supabase";
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
 
 interface Booking {
   id: number;
@@ -19,14 +22,25 @@ interface Booking {
   created_at: string;
 }
 
+interface BlockedDate {
+  id: number;
+  blocked_date: string;
+  reason: string | null;
+}
+
 export function AdminBookings() {
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [blockedDates, setBlockedDates] = useState<BlockedDate[]>([]);
+  const [activeTab, setActiveTab] = useState<"bookings" | "blocked-dates">("bookings");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const navigate = useNavigate();
+  const [editingBlockedDateId, setEditingBlockedDateId] = useState<number | null>(null);
+  const [blockedDateForm, setBlockedDateForm] = useState({ blocked_date: "", reason: "" });
+  const [isAddingBlockedDate, setIsAddingBlockedDate] = useState(false);
+  const [newBlockedDateForm, setNewBlockedDateForm] = useState({ blocked_date: "", reason: "" });
 
   useEffect(() => {
     fetchBookings();
@@ -46,14 +60,22 @@ export function AdminBookings() {
   const fetchBookings = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('bookings')
-        .select('*')
-        .order('created_at', { ascending: false });
+      const [bookingsResponse, blockedDatesResponse] = await Promise.all([
+        supabase
+          .from('bookings')
+          .select('*')
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('blocked_dates')
+          .select('id, blocked_date, reason')
+          .order('blocked_date', { ascending: true }),
+      ]);
 
-      if (error) throw error;
+      if (bookingsResponse.error) throw bookingsResponse.error;
+      if (blockedDatesResponse.error) throw blockedDatesResponse.error;
 
-      setBookings(data || []);
+      setBookings((bookingsResponse.data as Booking[]) || []);
+      setBlockedDates((blockedDatesResponse.data as BlockedDate[]) || []);
       setError(null);
     } catch (err) {
       console.error('Error fetching bookings:', err);
@@ -79,6 +101,106 @@ export function AdminBookings() {
     } catch (err) {
       console.error('Error updating booking:', err);
       setError(err instanceof Error ? err.message : 'Failed to update booking');
+    }
+  };
+
+  const startEditingBlockedDate = (blockedDate: BlockedDate) => {
+    setEditingBlockedDateId(blockedDate.id);
+    setBlockedDateForm({
+      blocked_date: blockedDate.blocked_date ? blockedDate.blocked_date.split("T")[0] : "",
+      reason: blockedDate.reason ?? "",
+    });
+  };
+
+  const cancelEditingBlockedDate = () => {
+    setEditingBlockedDateId(null);
+    setBlockedDateForm({ blocked_date: "", reason: "" });
+  };
+
+  const saveBlockedDate = async (id: number) => {
+    try {
+      const { error: updateError } = await supabase
+        .from("blocked_dates")
+        .update({
+          blocked_date: blockedDateForm.blocked_date,
+          reason: blockedDateForm.reason.trim() || null,
+        })
+        .eq("id", id);
+
+      if (updateError) throw updateError;
+
+      setBlockedDates((current) =>
+        current.map((item) =>
+          item.id === id
+            ? {
+                ...item,
+                blocked_date: blockedDateForm.blocked_date,
+                reason: blockedDateForm.reason.trim() || null,
+              }
+            : item
+        )
+      );
+
+      cancelEditingBlockedDate();
+    } catch (err) {
+      console.error("Error updating blocked date:", err);
+      setError(err instanceof Error ? err.message : "Failed to update blocked date");
+    }
+  };
+
+  const deleteBlockedDate = async (id: number) => {
+    try {
+      const { error: deleteError } = await supabase.from("blocked_dates").delete().eq("id", id);
+      if (deleteError) throw deleteError;
+
+      setBlockedDates((current) => current.filter((item) => item.id !== id));
+      if (editingBlockedDateId === id) {
+        cancelEditingBlockedDate();
+      }
+    } catch (err) {
+      console.error("Error deleting blocked date:", err);
+      setError(err instanceof Error ? err.message : "Failed to delete blocked date");
+    }
+  };
+
+  const addBlockedDate = async () => {
+    try {
+      if (!newBlockedDateForm.blocked_date) {
+        setError("Please select a date to block");
+        return;
+      }
+
+      const alreadyExists = blockedDates.some(
+        (item) => item.blocked_date.split("T")[0] === newBlockedDateForm.blocked_date
+      );
+
+      if (alreadyExists) {
+        setError("That date is already blocked");
+        return;
+      }
+
+      const { data, error: insertError } = await supabase
+        .from("blocked_dates")
+        .insert([
+          {
+            blocked_date: newBlockedDateForm.blocked_date,
+            reason: newBlockedDateForm.reason.trim() || null,
+          },
+        ])
+        .select("id, blocked_date, reason")
+        .single();
+
+      if (insertError) throw insertError;
+
+      setBlockedDates((current) => [...current, data as BlockedDate].sort((a, b) =>
+        a.blocked_date.localeCompare(b.blocked_date)
+      ));
+      setIsAddingBlockedDate(false);
+      setNewBlockedDateForm({ blocked_date: "", reason: "" });
+      setError(null);
+    } catch (err) {
+      console.error("Error adding blocked date:", err);
+      setError(err instanceof Error ? err.message : "Failed to add blocked date");
     }
   };
 
@@ -125,42 +247,210 @@ export function AdminBookings() {
         </div>
       )}
 
-      {/* Filters */}
-      <div className="bg-white border border-neutral-200 p-6 mb-6">
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
-            <input
-              type="text"
-              placeholder="Search by name or event type..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 border border-neutral-300 focus:outline-none focus:border-black"
-            />
-          </div>
-          <div className="relative">
-            <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="pl-10 pr-8 py-3 border border-neutral-300 focus:outline-none focus:border-black appearance-none bg-white"
-            >
-              <option value="all">All Status</option>
-              <option value="pending">Pending</option>
-              <option value="confirmed">Confirmed</option>
-            </select>
-          </div>
-        </div>
+      {/* Tabs */}
+      <div className="bg-white border border-neutral-200 p-2 mb-6 inline-flex gap-2">
+        <Button
+          variant="outline"
+          onClick={() => setActiveTab("bookings")}
+          className={`px-4 py-2 text-sm font-medium transition-colors ${
+            activeTab === "bookings"
+              ? "bg-black text-white"
+              : "border border-neutral-300 hover:bg-neutral-50"
+          }`}
+        >
+          Bookings
+        </Button>
+        <Button
+          variant="outline"
+          onClick={() => setActiveTab("blocked-dates")}
+          className={`px-4 py-2 text-sm font-medium transition-colors ${
+            activeTab === "blocked-dates"
+              ? "bg-black text-white"
+              : "border border-neutral-300 hover:bg-neutral-50"
+          }`}
+        >
+          Blocked Dates
+        </Button>
       </div>
 
-      {/* Bookings List */}
-      <div className="grid gap-4">
-        {filteredBookings.length === 0 ? (
-          <div className="bg-white border border-neutral-200 p-8 text-center">
-            <p className="text-neutral-600">No bookings found</p>
+      {/* Filters */}
+      {activeTab === "bookings" && (
+        <div className="bg-white border border-neutral-200 p-6 mb-6">
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
+              <Input
+                type="text"
+                placeholder="Search by name or event type..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-3 border border-neutral-300 focus:outline-none focus:border-black h-12"
+              />
+            </div>
+            <div className="relative">
+              <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="pl-10 pr-8 py-3 border border-neutral-300 focus:outline-none focus:border-black bg-white min-w-[180px] h-12">
+                  <SelectValue placeholder="All Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="confirmed">Confirmed</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-        ) : (
-          filteredBookings.map((booking) => (
+        </div>
+      )}
+
+      {activeTab === "blocked-dates" && (
+        <div className="bg-white border border-neutral-200 p-6 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold">Blocked Dates</h2>
+            <Button
+              onClick={() => setIsAddingBlockedDate((current) => !current)}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-black text-white hover:bg-neutral-800"
+            >
+              <Plus className="w-4 h-4" />
+              {isAddingBlockedDate ? "Cancel" : "Add Blocked Date"}
+            </Button>
+          </div>
+
+          {isAddingBlockedDate && (
+            <div className="grid gap-3 md:grid-cols-2 mb-4 border border-neutral-200 bg-neutral-50 p-4">
+              <Input
+                type="date"
+                value={newBlockedDateForm.blocked_date}
+                onChange={(e) =>
+                  setNewBlockedDateForm((prev) => ({ ...prev, blocked_date: e.target.value }))
+                }
+                className="w-full px-3 py-2 border border-neutral-300 bg-white text-neutral-900"
+              />
+              <Input
+                type="text"
+                value={newBlockedDateForm.reason}
+                onChange={(e) =>
+                  setNewBlockedDateForm((prev) => ({ ...prev, reason: e.target.value }))
+                }
+                placeholder="Reason (optional)"
+                className="w-full px-3 py-2 border border-neutral-300 bg-white text-neutral-900"
+              />
+              <div className="md:col-span-2 flex justify-end">
+                <Button
+                  onClick={addBlockedDate}
+                  className="px-4 py-2 bg-black text-white hover:bg-neutral-800"
+                >
+                  Save Blocked Date
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {blockedDates.length === 0 ? (
+            <p className="text-neutral-600">No blocked dates set.</p>
+          ) : (
+            <div className="grid gap-3">
+              {blockedDates.map((blockedDate) => (
+                <div
+                  key={blockedDate.id}
+                  className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 border border-red-200 bg-red-50 p-4"
+                >
+                  <div className="flex-1">
+                    {editingBlockedDateId === blockedDate.id ? (
+                      <div className="grid gap-3 md:grid-cols-2">
+                        <Input
+                          type="date"
+                          value={blockedDateForm.blocked_date}
+                          onChange={(e) =>
+                            setBlockedDateForm((prev) => ({ ...prev, blocked_date: e.target.value }))
+                          }
+                          className="w-full px-3 py-2 border border-neutral-300 bg-white text-neutral-900"
+                        />
+                        <Input
+                          type="text"
+                          value={blockedDateForm.reason}
+                          onChange={(e) =>
+                            setBlockedDateForm((prev) => ({ ...prev, reason: e.target.value }))
+                          }
+                          placeholder="Reason (optional)"
+                          className="w-full px-3 py-2 border border-neutral-300 bg-white text-neutral-900"
+                        />
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 text-red-700">
+                        <Calendar className="w-4 h-4" />
+                        <span className="font-medium">
+                          {new Date(blockedDate.blocked_date).toLocaleDateString("en-ZA", {
+                            weekday: "long",
+                            year: "numeric",
+                            month: "long",
+                            day: "numeric",
+                          })}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {editingBlockedDateId === blockedDate.id ? null : (
+                    <p className="text-sm text-red-700 flex-1 md:text-right">
+                      {blockedDate.reason || "No reason provided"}
+                    </p>
+                  )}
+
+                  <div className="flex items-center gap-2">
+                    {editingBlockedDateId === blockedDate.id ? (
+                      <>
+                        <Button
+                          onClick={() => saveBlockedDate(blockedDate.id)}
+                          className="px-3 py-2 bg-black text-white hover:bg-neutral-800"
+                        >
+                          Save
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={cancelEditingBlockedDate}
+                          className="px-3 py-2 border border-neutral-300 bg-white hover:bg-neutral-100"
+                        >
+                          Cancel
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <Button
+                          variant="outline"
+                          onClick={() => startEditingBlockedDate(blockedDate)}
+                          className="p-2 border border-neutral-300 bg-white hover:bg-neutral-100"
+                          aria-label="Edit blocked date"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          onClick={() => deleteBlockedDate(blockedDate.id)}
+                          className="p-2"
+                          aria-label="Delete blocked date"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === "bookings" && (
+        <div className="grid gap-4">
+          {filteredBookings.length === 0 ? (
+            <div className="bg-white border border-neutral-200 p-8 text-center">
+              <p className="text-neutral-600">No bookings found</p>
+            </div>
+          ) : (
+            filteredBookings.map((booking) => (
             <div key={booking.id} className="bg-white border border-neutral-200 p-6 hover:border-neutral-300 transition-colors">
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-4">
                 <div>
@@ -240,7 +530,8 @@ export function AdminBookings() {
               )}
 
               <div className="flex gap-2">
-                <button
+                <Button
+                  variant="outline"
                   onClick={() => updateBookingStatus(booking.id, true)}
                   disabled={booking.confirmed}
                   className={`flex-1 py-2 px-4 flex items-center justify-center gap-2 transition-colors ${
@@ -251,24 +542,26 @@ export function AdminBookings() {
                 >
                   <Check className="w-4 h-4" />
                   Confirm
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="outline"
                   onClick={() => updateBookingStatus(booking.id, false)}
                   disabled={!booking.confirmed}
                   className={`flex-1 py-2 px-4 flex items-center justify-center gap-2 transition-colors ${
-                    !booking.confirmed
-                      ? "bg-yellow-500/10 text-yellow-600 border border-yellow-500/20"
-                      : "bg-red-500/20 text-red-700 border border-red-500/40 hover:bg-red-500/30"
+                    booking.confirmed
+                      ? "bg-red-500/20 text-red-700 border border-red-500/40 hover:bg-red-500/30"
+                      : "bg-yellow-500/10 text-yellow-600 border border-yellow-500/20"
                   }`}
                 >
                   <X className="w-4 h-4" />
                   {booking.confirmed ? "Pending" : "Already Pending"}
-                </button>
+                </Button>
               </div>
             </div>
-          ))
-        )}
-      </div>
+            ))
+          )}
+        </div>
+      )}
     </div>
   );
 }
