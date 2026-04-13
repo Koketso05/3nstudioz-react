@@ -35,6 +35,7 @@ export function AdminBookings() {
   const [activeTab, setActiveTab] = useState<"bookings" | "blocked-dates">("bookings");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const navigate = useNavigate();
@@ -88,7 +89,10 @@ export function AdminBookings() {
 
   const updateBookingStatus = async (bookingId: number, status: "confirmed" | "rejected") => {
     try {
-      const { error: functionError } = await supabase.functions.invoke("update-booking-status", {
+      setError(null);
+      setSuccessMessage(null);
+
+      const { data: functionData, error: functionError } = await supabase.functions.invoke("update-booking-status", {
         body: { bookingId, status },
       });
 
@@ -121,6 +125,14 @@ export function AdminBookings() {
             }
           : booking
       ));
+
+      let message = "Booking rejected successfully.";
+      if (status === "confirmed") {
+        message = functionData?.emailSent
+          ? "Booking confirmed and confirmation email sent to client."
+          : "Booking confirmed successfully.";
+      }
+      setSuccessMessage(message);
     } catch (err) {
       console.error('Error updating booking:', err);
       setError(err instanceof Error ? err.message : 'Failed to update booking');
@@ -269,6 +281,12 @@ export function AdminBookings() {
       {error && (
         <div className="bg-red-500/10 border border-red-500/20 text-red-600 p-4 mb-6">
           {error}
+        </div>
+      )}
+
+      {successMessage && (
+        <div className="bg-green-500/10 border border-green-500/20 text-green-700 p-4 mb-6">
+          {successMessage}
         </div>
       )}
 
