@@ -1,19 +1,33 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router";
-import { Camera, Video, Clock, Users, MapPin, Check } from "lucide-react";
+import { Camera, Video, Clock, Users, MapPin, Check, type LucideIcon } from "lucide-react";
 import { ImageWithFallback } from "../components/figma/ImageWithFallback";
+import { supabase } from "../../lib/supabase";
 
 interface Service {
   id: string;
   title: string;
-  icon: typeof Camera;
+  icon: LucideIcon;
   image: string;
   description: string;
   packages: {
+    id: string;
     name: string;
     price: string;
     duration: string;
     features: string[];
   }[];
+}
+
+interface ServiceRow {
+  id: string;
+  name: string;
+  type: "photography" | "videography";
+  price: string;
+  duration: string;
+  features: string[];
+  is_active: boolean;
+  created_at: string;
 }
 
 const durationToBookingValue = (duration: string): string => {
@@ -29,117 +43,79 @@ const durationToBookingValue = (duration: string): string => {
   return "";
 };
 
-const services: Service[] = [
-  {
+const serviceSectionMeta: Record<"photography" | "videography", Omit<Service, "packages">> = {
+  photography: {
     id: "photography",
     title: "Photography Services",
     icon: Camera,
     image: "https://images.unsplash.com/photo-1647730346047-649e23e3c7fa?w=800",
     description:
       "Professional photography services capturing your most precious moments with artistic excellence.",
-    packages: [
-      {
-        name: "Basic Package",
-        price: "From R2,500",
-        duration: "2-3 hours",
-        features: [
-          "Up to 3 hours coverage",
-          "100+ edited photos",
-          "Online gallery",
-          "High-resolution digital files",
-          "Personal rights to images",
-        ],
-      },
-      {
-        name: "Premium Package",
-        price: "From R5,000",
-        duration: "Full day",
-        features: [
-          "Full day coverage (8 hours)",
-          "300+ edited photos",
-          "Online gallery with favorites",
-          "High-resolution digital files",
-          "Personal rights to images",
-          "Printed photo album (30 pages)",
-          "Second photographer",
-        ],
-      },
-      {
-        name: "Luxury Package",
-        price: "Request Quote",
-        duration: "Unlimited",
-        features: [
-          "Unlimited coverage",
-          "500+ edited photos",
-          "Premium online gallery",
-          "High-resolution digital files",
-          "Personal rights to images",
-          "Luxury printed album (60 pages)",
-          "Second photographer",
-          "Engagement shoot included",
-          "Canvas prints (3x)",
-        ],
-      },
-    ],
   },
-  {
+  videography: {
     id: "videography",
     title: "Videography Services",
     icon: Video,
     image: "https://images.unsplash.com/photo-1575112165295-29b81f5f269e?w=800",
     description:
       "Cinematic video production that tells your story with professional editing and stunning visuals.",
-    packages: [
-      {
-        name: "Highlights Package",
-        price: "From R3,500",
-        duration: "2-3 hours",
-        features: [
-          "Up to 3 hours filming",
-          "3-5 minute highlight video",
-          "Professional editing",
-          "Music licensed soundtrack",
-          "4K resolution",
-          "Digital download",
-        ],
-      },
-      {
-        name: "Full Coverage Package",
-        price: "From R7,000",
-        duration: "Full day",
-        features: [
-          "Full day filming (8 hours)",
-          "10-15 minute feature film",
-          "3-5 minute highlight video",
-          "Professional editing & color grading",
-          "Music licensed soundtrack",
-          "4K resolution",
-          "Digital download + USB",
-          "Second videographer",
-        ],
-      },
-      {
-        name: "Cinematic Package",
-        price: "Request Quote",
-        duration: "Unlimited",
-        features: [
-          "Unlimited filming",
-          "20+ minute cinematic film",
-          "5-7 minute highlight video",
-          "Professional editing & color grading",
-          "Custom music & sound design",
-          "4K resolution",
-          "Digital download + USB + Blu-ray",
-          "Two videographers",
-          "Drone footage included",
-          "Raw footage provided",
-        ],
-      },
-    ],
   },
-];
+};
+
+const buildServices = (serviceRows: ServiceRow[]): Service[] => {
+  return (Object.keys(serviceSectionMeta) as Array<keyof typeof serviceSectionMeta>)
+    .map((serviceType) => {
+      const packages = serviceRows
+        .filter((serviceRow) => serviceRow.type === serviceType)
+        .map((serviceRow) => ({
+          id: serviceRow.id,
+          name: serviceRow.name,
+          price: serviceRow.price,
+          duration: serviceRow.duration,
+          features: serviceRow.features ?? [],
+        }));
+
+      return {
+        ...serviceSectionMeta[serviceType],
+        packages,
+      };
+    })
+    .filter((service) => service.packages.length > 0);
+};
 
 export function Services() {
+  const [services, setServices] = useState<Service[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchServices = async () => {
+      try {
+        setLoading(true);
+        const { data, error: servicesError } = await supabase
+          .from("services")
+          .select("id, name, type, price, duration, features, is_active, created_at")
+          .eq("is_active", true)
+          .order("created_at", { ascending: true });
+
+        if (servicesError) throw servicesError;
+
+        const serviceRows = (data as ServiceRow[]) ?? [];
+        const groupedServices = buildServices(serviceRows);
+
+        setServices(groupedServices);
+        setError(null);
+      } catch (err) {
+        console.error("Error fetching services:", err);
+        setError(err instanceof Error ? err.message : "Failed to load services.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchServices();
+  }, []);
+
   return (
     <div className="min-h-screen py-16 px-4">
       <div className="max-w-7xl mx-auto">
@@ -150,6 +126,20 @@ export function Services() {
             Professional packages tailored to capture your special moments perfectly
           </p>
         </div>
+
+        {error && (
+          <div className="mb-10 border border-red-500/20 bg-red-500/10 p-4 text-red-300">
+            {error}
+          </div>
+        )}
+
+        {loading && (
+          <div className="py-16 text-center text-white/60">Loading services...</div>
+        )}
+
+        {!loading && services.length === 0 && !error && (
+          <div className="py-16 text-center text-white/60">No active services available right now.</div>
+        )}
 
         {/* Services */}
         {services.map((service, index) => {
@@ -195,16 +185,16 @@ export function Services() {
 
               {/* Packages */}
               <div className="grid md:grid-cols-3 gap-6">
-                {service.packages.map((pkg) => (
+                {service.packages.map((pkg, packageIndex) => (
                   <div
-                    key={pkg.name}
+                    key={pkg.id}
                     className={`bg-neutral-900 border p-8 flex flex-col ${
-                      service.packages.indexOf(pkg) === 1
+                      packageIndex === 1
                         ? "border-yellow-400 md:scale-105"
                         : "border-white/10"
                     }`}
                   >
-                    {service.packages.indexOf(pkg) === 1 && (
+                    {packageIndex === 1 && (
                       <div className="inline-block px-4 py-1 bg-yellow-400 text-black text-sm mb-4 self-start">
                         MOST POPULAR
                       </div>

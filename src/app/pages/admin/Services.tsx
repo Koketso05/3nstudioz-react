@@ -20,6 +20,14 @@ import {
   SelectValue,
 } from "../../components/ui/select";
 
+const getSubmitLabel = (isSubmitting: boolean, isEditing: boolean) => {
+  if (isSubmitting) {
+    return isEditing ? "Updating..." : "Adding...";
+  }
+
+  return isEditing ? "Update Service" : "Add Service";
+};
+
 interface ServicePackage {
   id: string;
   name: string;
@@ -33,6 +41,7 @@ interface ServicePackage {
 export function AdminServices() {
   const [services, setServices] = useState<ServicePackage[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedType, setSelectedType] = useState<string>("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingService, setEditingService] = useState<ServicePackage | null>(null);
@@ -49,12 +58,6 @@ export function AdminServices() {
 
   useEffect(() => {
     fetchServices();
-    // Check authentication
-    const checkAuth = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      console.log('Current user:', user);
-    };
-    checkAuth();
   }, []);
 
   const fetchServices = async () => {
@@ -65,8 +68,10 @@ export function AdminServices() {
 
     if (error) {
       console.error('Error fetching services:', error);
+      setError(error.message);
     } else {
       setServices(data || []);
+      setError(null);
     }
     setLoading(false);
   };
@@ -84,15 +89,19 @@ export function AdminServices() {
   const confirmDelete = async () => {
     if (!serviceToDelete) return;
 
-    const { error } = await supabase
-      .from('services')
-      .delete()
-      .eq('id', serviceToDelete);
+    const { error: functionError } = await supabase.functions.invoke("manage-services", {
+      body: {
+        action: "delete",
+        serviceId: serviceToDelete,
+      },
+    });
 
-    if (error) {
-      console.error('Error deleting service:', error);
+    if (functionError) {
+      console.error("Error deleting service:", functionError);
+      setError(functionError.message);
     } else {
       setServices(services.filter((s) => s.id !== serviceToDelete));
+      setError(null);
     }
 
     setIsConfirmDialogOpen(false);
@@ -103,19 +112,25 @@ export function AdminServices() {
     const service = services.find((s) => s.id === id);
     if (!service) return;
 
-    const { error } = await supabase
-      .from('services')
-      .update({ is_active: !service.is_active })
-      .eq('id', id);
+    const { data: functionData, error: functionError } = await supabase.functions.invoke("manage-services", {
+      body: {
+        action: "toggle-active",
+        serviceId: id,
+        payload: { is_active: !service.is_active },
+      },
+    });
 
-    if (error) {
-      console.error('Error updating service:', error);
+    if (functionError) {
+      console.error("Error updating service:", functionError);
+      setError(functionError.message);
     } else {
+      const updatedService = functionData?.service;
       setServices(
         services.map((s) =>
-          s.id === id ? { ...s, is_active: !s.is_active } : s
+          s.id === id ? (updatedService ?? { ...s, is_active: !service.is_active }) : s
         )
       );
+      setError(null);
     }
   };
 
@@ -143,7 +158,7 @@ export function AdminServices() {
     setIsDialogOpen(true);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsSubmitting(true);
 
@@ -160,36 +175,40 @@ export function AdminServices() {
     };
 
     if (editingService) {
-      // Update existing service
-      console.log('Updating service:', editingService.id, serviceData);
-      const { error } = await supabase
-        .from('services')
-        .update(serviceData)
-        .eq('id', editingService.id);
+      const { data: functionData, error: functionError } = await supabase.functions.invoke("manage-services", {
+        body: {
+          action: "update",
+          serviceId: editingService.id,
+          payload: serviceData,
+        },
+      });
 
-      if (error) {
-        console.error('Error updating service:', error);
-        alert(`Error updating service: ${error.message}`);
+      if (functionError) {
+        console.error("Error updating service:", functionError);
+        setError(functionError.message);
       } else {
         setServices(services.map((s) =>
-          s.id === editingService.id ? { ...s, ...serviceData } : s
+          s.id === editingService.id ? (functionData?.service ?? { ...s, ...serviceData }) : s
         ));
         setIsDialogOpen(false);
         setEditingService(null);
+        setError(null);
       }
     } else {
-      // Create new service
-      const { data, error } = await supabase
-        .from('services')
-        .insert([serviceData])
-        .select()
-        .single();
+      const { data: functionData, error: functionError } = await supabase.functions.invoke("manage-services", {
+        body: {
+          action: "create",
+          payload: serviceData,
+        },
+      });
 
-      if (error) {
-        console.error('Error adding service:', error);
+      if (functionError) {
+        console.error("Error adding service:", functionError);
+        setError(functionError.message);
       } else {
-        setServices([data, ...services]);
+        setServices([functionData?.service, ...services].filter(Boolean));
         setIsDialogOpen(false);
+        setError(null);
       }
     }
 
@@ -229,6 +248,12 @@ export function AdminServices() {
           Add New Package
         </button>
       </div>
+
+      {error && (
+        <div className="mb-6 bg-red-500/10 border border-red-500/20 text-red-600 p-4">
+          {error}
+        </div>
+      )}
 
       {/* Filter */}
       <div className="bg-white border border-neutral-200 p-6 mb-6">
@@ -319,9 +344,9 @@ export function AdminServices() {
               <div className="mb-6">
                 <h4 className="font-medium mb-3">Includes:</h4>
                 <ul className="space-y-2">
-                  {service.features.map((feature, i) => (
+                  {service.features.map((feature) => (
                     <li
-                      key={i}
+                      key={feature}
                       className="text-sm text-neutral-600 flex items-start gap-2"
                     >
                       <span className="w-1.5 h-1.5 bg-neutral-400 rounded-full mt-1.5"></span>
@@ -479,7 +504,7 @@ export function AdminServices() {
 
               <div className="space-y-2">
                 {formData.features.map((feature, index) => (
-                  <div key={index} className="flex gap-2">
+                  <div key={`${index}-${feature}`} className="flex gap-2">
                     <Input
                       value={feature}
                       onChange={(e) => updateFeature(index, e.target.value)}
@@ -511,10 +536,7 @@ export function AdminServices() {
                 Cancel
               </Button>
               <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting
-                  ? (editingService ? "Updating..." : "Adding...")
-                  : (editingService ? "Update Service" : "Add Service")
-                }
+                {getSubmitLabel(isSubmitting, Boolean(editingService))}
               </Button>
             </DialogFooter>
           </form>
