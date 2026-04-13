@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { ChevronLeft, ChevronRight, X, Plus } from "lucide-react";
 import { supabase } from "../../../lib/supabase";
+import { Button } from "../../components/ui/button";
 
 interface CalendarEvent {
   id: number;
@@ -13,7 +14,6 @@ interface CalendarEvent {
 
 export function AdminCalendar() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [showBlockModal, setShowBlockModal] = useState(false);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -205,13 +205,13 @@ export function AdminCalendar() {
           <h1 className="text-3xl font-bold mb-2">Calendar View</h1>
           <p className="text-neutral-600">Manage bookings and blocked dates</p>
         </div>
-        <button
+        <Button
           onClick={() => setShowBlockModal(true)}
           className="flex items-center gap-2 px-6 py-3 bg-red-600 text-white hover:bg-red-700 transition-colors"
         >
           <Plus className="w-5 h-5" />
           Block Date
-        </button>
+        </Button>
       </div>
 
       {error && (
@@ -294,10 +294,9 @@ export function AdminCalendar() {
                   days.push(
                     <div
                       key={day}
-                      className={`min-h-24 p-2 border border-neutral-200 hover:bg-neutral-50 cursor-pointer ${
+                      className={`min-h-24 p-2 border border-neutral-200 hover:bg-neutral-50 ${
                         isToday ? "bg-blue-50" : "bg-white"
                       }`}
-                      onClick={() => setSelectedDate(date)}
                     >
                       <div className={`text-sm mb-1 ${isToday ? "font-bold text-blue-600" : ""}`}>
                         {day}
@@ -358,7 +357,9 @@ export function AdminCalendar() {
           <div className="bg-white max-w-md w-full p-6">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-semibold">Block Date</h3>
-              <button
+              <Button
+                type="button"
+                variant="ghost"
                 onClick={() => {
                   setShowBlockModal(false);
                   setBlockDate('');
@@ -367,12 +368,13 @@ export function AdminCalendar() {
                 className="p-1 hover:bg-neutral-100"
               >
                 <X className="w-6 h-6" />
-              </button>
+              </Button>
             </div>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm mb-2">Date</label>
+                <label htmlFor="block-date" className="block text-sm mb-2">Date</label>
                 <input
+                  id="block-date"
                   type="date"
                   value={blockDate}
                   onChange={(e) => setBlockDate(e.target.value)}
@@ -380,8 +382,9 @@ export function AdminCalendar() {
                 />
               </div>
               <div>
-                <label className="block text-sm mb-2">Reason (Optional)</label>
+                <label htmlFor="block-reason" className="block text-sm mb-2">Reason (Optional)</label>
                 <input
+                  id="block-reason"
                   type="text"
                   value={blockReason}
                   onChange={(e) => setBlockReason(e.target.value)}
@@ -390,7 +393,9 @@ export function AdminCalendar() {
                 />
               </div>
               <div className="flex gap-2">
-                <button
+                <Button
+                  type="button"
+                  variant="outline"
                   onClick={() => {
                     setShowBlockModal(false);
                     setBlockDate('');
@@ -399,13 +404,14 @@ export function AdminCalendar() {
                   className="flex-1 py-3 border border-neutral-300 hover:bg-neutral-50 transition-colors"
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
+                  type="button"
                   onClick={handleBlockDate}
                   className="flex-1 py-3 bg-red-600 text-white hover:bg-red-700 transition-colors"
                 >
                   Block Date
-                </button>
+                </Button>
               </div>
             </div>
           </div>
