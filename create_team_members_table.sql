@@ -29,7 +29,7 @@ create policy "Allow authenticated writes"
 -- Seed with initial members (update with real data)
 insert into team_members (name, role, bio, image_url, instagram, display_order) values
   (
-    'Nkosinathi Dlamini',
+    'Julias Phahle',
     'Lead Photographer & Founder',
     'With 8+ years of experience, Nkosinathi founded 3NStudioz with a vision to capture South Africa''s most beautiful moments.',
     'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400',
