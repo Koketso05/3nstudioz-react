@@ -290,7 +290,7 @@ export function AdminBookings() {
             <div className="relative">
               <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="pl-10 pr-8 py-3 border border-neutral-300 focus:outline-none focus:border-black bg-white min-w-[180px] h-12">
+                <SelectTrigger className="pl-10 pr-8 py-3 border border-neutral-300 focus:outline-none focus:border-black bg-white min-w-[180px] h-12 data-[size=default]:h-12">
                   <SelectValue placeholder="All Status" />
                 </SelectTrigger>
                 <SelectContent>
