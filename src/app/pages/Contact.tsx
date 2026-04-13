@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Mail, Phone, MapPin, MessageSquare, Send, CheckCircle } from "lucide-react";
-import { FaWhatsapp, FaInstagram, FaFacebook, FaTwitter } from "react-icons/fa";
+import { FaWhatsapp, FaInstagram, FaFacebook, FaTwitter, FaTiktok } from "react-icons/fa";
 import { supabase } from "../../lib/supabase";
 
 export function Contact() {
@@ -215,15 +215,7 @@ export function Contact() {
               </h3>
               <div className="flex gap-4">
                 <a
-                  href="https://instagram.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-12 h-12 bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
-                >
-                  <FaInstagram className="w-6 h-6" />
-                </a>
-                <a
-                  href="https://facebook.com"
+                  href="https://www.facebook.com/profile.php?id=61582804560474"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="w-12 h-12 bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
@@ -231,12 +223,12 @@ export function Contact() {
                   <FaFacebook className="w-6 h-6" />
                 </a>
                 <a
-                  href="https://twitter.com"
+                  href="https://www.tiktok.com/@3nstudioz"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="w-12 h-12 bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
                 >
-                  <FaTwitter className="w-6 h-6" />
+                  <FaTiktok className="w-6 h-6" />
                 </a>
               </div>
             </div>
