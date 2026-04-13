@@ -1,11 +1,49 @@
 import { Outlet, Link, useLocation, useNavigate } from "react-router";
 import { LayoutDashboard, Calendar, Image, Package, FileText, LogOut } from "lucide-react";
+import { useEffect, useState } from "react";
 import { AnalyticsListener } from "./AnalyticsListener";
 import { supabase } from "../../lib/supabase";
 
 export function AdminLayout() {
   const location = useLocation();
   const navigate = useNavigate();
+  const [displayName, setDisplayName] = useState("Admin");
+
+  useEffect(() => {
+    const getDisplayNameFromUser = (
+      user: { email?: string | null; user_metadata?: Record<string, unknown> } | null
+    ) => {
+      if (!user) return "Admin";
+
+      const metadata = user.user_metadata ?? {};
+      const nameFromMetadata =
+        (typeof metadata.full_name === "string" && metadata.full_name) ||
+        (typeof metadata.name === "string" && metadata.name) ||
+        (typeof metadata.display_name === "string" && metadata.display_name);
+
+      if (nameFromMetadata) return nameFromMetadata;
+      if (user.email) return user.email.split("@")[0];
+
+      return "Admin";
+    };
+
+    const fetchCurrentUser = async () => {
+      const { data } = await supabase.auth.getUser();
+      setDisplayName(getDisplayNameFromUser(data.user));
+    };
+
+    fetchCurrentUser();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setDisplayName(getDisplayNameFromUser(session?.user ?? null));
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -49,6 +87,7 @@ export function AdminLayout() {
             </div>
           </Link>
           <div className="flex items-center gap-4">
+            <span className="text-sm text-white/80">Logged in as {displayName}</span>
             <Link
               to="/"
               className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-sm transition-colors"
