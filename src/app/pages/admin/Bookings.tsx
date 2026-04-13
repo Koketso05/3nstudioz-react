@@ -18,6 +18,7 @@ interface Booking {
   duration: string;
   number_of_people: string;
   confirmed: boolean;
+  status?: "pending" | "confirmed" | "rejected";
   notes: string;
   created_at: string;
 }
@@ -85,18 +86,40 @@ export function AdminBookings() {
     }
   };
 
-  const updateBookingStatus = async (bookingId: number, confirmed: boolean) => {
+  const updateBookingStatus = async (bookingId: number, status: "confirmed" | "rejected") => {
     try {
-      const { error } = await supabase
-        .from('bookings')
-        .update({ confirmed })
-        .eq('id', bookingId);
+      const { error: functionError } = await supabase.functions.invoke("update-booking-status", {
+        body: { bookingId, status },
+      });
 
-      if (error) throw error;
+      if (functionError) {
+        const message = String(functionError.message || "").toLowerCase();
+
+        // If function isn't reachable, fallback to direct table update.
+        if (message.includes("not found") || message.includes("failed to send a request")) {
+          const { error: directError } = await supabase
+            .from("bookings")
+            .update({
+              confirmed: status === "confirmed",
+              status,
+            })
+            .eq("id", bookingId);
+
+          if (directError) throw directError;
+        } else {
+          throw functionError;
+        }
+      }
 
       // Update local state
       setBookings(bookings.map(booking =>
-        booking.id === bookingId ? { ...booking, confirmed } : booking
+        booking.id === bookingId
+          ? {
+              ...booking,
+              confirmed: status === "confirmed",
+              status,
+            }
+          : booking
       ));
     } catch (err) {
       console.error('Error updating booking:', err);
@@ -205,20 +228,22 @@ export function AdminBookings() {
   };
 
   const filteredBookings = bookings.filter((booking) => {
+    const currentStatus = booking.status ?? (booking.confirmed ? "confirmed" : "pending");
     const matchesSearch =
       booking.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       booking.event_type.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = 
-      statusFilter === "all" || 
-      (statusFilter === "confirmed" && booking.confirmed) ||
-      (statusFilter === "pending" && !booking.confirmed);
+    const matchesStatus = statusFilter === "all" || statusFilter === currentStatus;
     return matchesSearch && matchesStatus;
   });
 
-  const getStatusColor = (confirmed: boolean) => {
-    return confirmed
-      ? "bg-green-500/10 text-green-600 border-green-500/20"
-      : "bg-yellow-500/10 text-yellow-600 border-yellow-500/20";
+  const getStatusColor = (status: "pending" | "confirmed" | "rejected") => {
+    if (status === "confirmed") {
+      return "bg-green-500/10 text-green-600 border-green-500/20";
+    }
+    if (status === "rejected") {
+      return "bg-red-500/10 text-red-600 border-red-500/20";
+    }
+    return "bg-yellow-500/10 text-yellow-600 border-yellow-500/20";
   };
 
   if (loading) {
@@ -297,6 +322,7 @@ export function AdminBookings() {
                   <SelectItem value="all">All Status</SelectItem>
                   <SelectItem value="pending">Pending</SelectItem>
                   <SelectItem value="confirmed">Confirmed</SelectItem>
+                  <SelectItem value="rejected">Rejected</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -452,6 +478,9 @@ export function AdminBookings() {
           ) : (
             filteredBookings.map((booking) => (
             <div key={booking.id} className="bg-white border border-neutral-200 p-6 hover:border-neutral-300 transition-colors">
+              {(() => {
+                const currentStatus = booking.status ?? (booking.confirmed ? "confirmed" : "pending");
+                return (
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-4">
                 <div>
                   <h3 className="text-xl font-semibold mb-1">{booking.full_name}</h3>
@@ -459,10 +488,12 @@ export function AdminBookings() {
                     {booking.event_type.charAt(0).toUpperCase() + booking.event_type.slice(1)}
                   </p>
                 </div>
-                <span className={`px-4 py-2 border text-sm self-start font-medium ${getStatusColor(booking.confirmed)}`}>
-                  {booking.confirmed ? "Confirmed" : "Pending"}
+                <span className={`px-4 py-2 border text-sm self-start font-medium capitalize ${getStatusColor(currentStatus)}`}>
+                  {currentStatus}
                 </span>
               </div>
+                );
+              })()}
 
               <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
                 <div className="flex items-start gap-2">
@@ -530,12 +561,16 @@ export function AdminBookings() {
               )}
 
               <div className="flex gap-2">
+                {(() => {
+                  const currentStatus = booking.status ?? (booking.confirmed ? "confirmed" : "pending");
+                  return (
+                    <>
                 <Button
                   variant="outline"
-                  onClick={() => updateBookingStatus(booking.id, true)}
-                  disabled={booking.confirmed}
+                  onClick={() => updateBookingStatus(booking.id, "confirmed")}
+                  disabled={currentStatus === "confirmed"}
                   className={`flex-1 py-2 px-4 flex items-center justify-center gap-2 transition-colors ${
-                    booking.confirmed
+                    currentStatus === "confirmed"
                       ? "bg-green-500/10 text-green-600 border border-green-500/20"
                       : "bg-green-500/20 text-green-700 border border-green-500/40 hover:bg-green-500/30"
                   }`}
@@ -545,17 +580,20 @@ export function AdminBookings() {
                 </Button>
                 <Button
                   variant="outline"
-                  onClick={() => updateBookingStatus(booking.id, false)}
-                  disabled={!booking.confirmed}
+                  onClick={() => updateBookingStatus(booking.id, "rejected")}
+                  disabled={currentStatus === "rejected"}
                   className={`flex-1 py-2 px-4 flex items-center justify-center gap-2 transition-colors ${
-                    booking.confirmed
+                    currentStatus === "rejected"
                       ? "bg-red-500/20 text-red-700 border border-red-500/40 hover:bg-red-500/30"
-                      : "bg-yellow-500/10 text-yellow-600 border border-yellow-500/20"
+                      : "bg-red-500/10 text-red-600 border border-red-500/20 hover:bg-red-100"
                   }`}
                 >
                   <X className="w-4 h-4" />
-                  {booking.confirmed ? "Pending" : "Already Pending"}
+                  Reject
                 </Button>
+                    </>
+                  );
+                })()}
               </div>
             </div>
             ))

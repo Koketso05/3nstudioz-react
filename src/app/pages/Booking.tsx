@@ -156,6 +156,7 @@ export function Booking() {
             event_type: formData.eventType,
             duration: formData.duration,
             number_of_people: formData.numberOfPeople,
+            status: 'pending',
             notes: formData.notes,
           }
         ]);
