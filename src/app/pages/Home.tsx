@@ -1,28 +1,32 @@
 import { Link } from "react-router";
 import { Camera, Video, Star, ArrowRight } from "lucide-react";
 import { ImageWithFallback } from "../components/figma/ImageWithFallback";
+import { useEffect, useState } from "react";
+import { supabase } from "../../lib/supabase";
 
 export function Home() {
-  const testimonials = [
-    {
-      name: "Sarah & John",
-      event: "Wedding",
-      text: "3NStudioz captured our special day perfectly! Every moment was beautifully preserved.",
-      rating: 5,
-    },
-    {
-      name: "Gift Khumalo",
-      event: "Wedding",
-      text: "Professional, creative, and reliable. Highly recommend for any business event.",
-      rating: 5,
-    },
-    {
-      name: "Mothusi Bahlekazi",
-      event: "Birthday Party",
-      text: "The photos were stunning! They made our celebration unforgettable.",
-      rating: 5,
-    },
-  ];
+  const [testimonials, setTestimonials] = useState([]);
+  const [loadingTestimonials, setLoadingTestimonials] = useState(true);
+  const [testimonialsError, setTestimonialsError] = useState(null);
+
+  useEffect(() => {
+    const fetchTestimonials = async () => {
+      setLoadingTestimonials(true);
+      setTestimonialsError(null);
+      const { data, error } = await supabase
+        .from("testimonials")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) {
+        setTestimonialsError("Could not load testimonials.");
+        setTestimonials([]);
+      } else {
+        setTestimonials(data || []);
+      }
+      setLoadingTestimonials(false);
+    };
+    fetchTestimonials();
+  }, []);
 
   return (
     <div>
@@ -154,22 +158,30 @@ export function Home() {
             <p className="text-white/60 text-lg">Trusted by hundreds of satisfied clients</p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8">
-            {testimonials.map((testimonial, i) => (
-              <div key={i} className="bg-neutral-900 p-8 border border-white/10">
-                <div className="flex gap-1 mb-4">
-                  {[...Array(testimonial.rating)].map((_, i) => (
-                    <Star key={i} className="w-5 h-5 fill-yellow-400 text-yellow-400" />
-                  ))}
+          {loadingTestimonials ? (
+            <div className="text-center text-white/60 py-12">Loading testimonials...</div>
+          ) : testimonialsError ? (
+            <div className="text-center text-red-400 py-12">{testimonialsError}</div>
+          ) : testimonials.length === 0 ? (
+            <div className="text-center text-white/60 py-12">No testimonials found.</div>
+          ) : (
+            <div className="grid md:grid-cols-3 gap-8">
+              {testimonials.map((testimonial, i) => (
+                <div key={testimonial.id || i} className="bg-neutral-900 p-8 border border-white/10">
+                  <div className="flex gap-1 mb-4">
+                    {[...Array(testimonial.rating)].map((_, i) => (
+                      <Star key={i} className="w-5 h-5 fill-yellow-400 text-yellow-400" />
+                    ))}
+                  </div>
+                  <p className="text-white/80 mb-6 italic">"{testimonial.text}"</p>
+                  <div>
+                    <p className="font-semibold">{testimonial.name}</p>
+                    <p className="text-sm text-white/60">{testimonial.event}</p>
+                  </div>
                 </div>
-                <p className="text-white/80 mb-6 italic">"{testimonial.text}"</p>
-                <div>
-                  <p className="font-semibold">{testimonial.name}</p>
-                  <p className="text-sm text-white/60">{testimonial.event}</p>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
