@@ -26,6 +26,7 @@ Deno.serve(async (req) => {
       phone,
       email,
       location,
+      distance,
       eventType,
       duration,
       numberOfPeople,
@@ -71,6 +72,7 @@ Deno.serve(async (req) => {
             <p><strong>Phone:</strong> ${escapeHtml(String(phone))}</p>
             <p><strong>Email:</strong> <a href="mailto:${escapeHtml(String(email))}">${escapeHtml(String(email))}</a></p>
             <p><strong>Location:</strong> ${escapeHtml(String(location))}</p>
+            <p><strong>Distance:</strong> ${escapeHtml(String(distance ?? 'Not provided'))}</p>
             <p><strong>Event Type:</strong> ${escapeHtml(String(eventType))}</p>
             <p><strong>Duration:</strong> ${escapeHtml(String(duration))}</p>
             <p><strong>Number of People:</strong> ${escapeHtml(String(numberOfPeople || "Not provided"))}</p>

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useLocation } from "react-router";
 import { Calendar, Clock, MapPin, Users, FileText, CheckCircle, AlertCircle } from "lucide-react";
 import { Calendar as CalendarComponent } from "../components/Calendar";
+import AddressAutocomplete from "../components/AddressAutocomplete";
 import { supabase } from "../../lib/supabase";
 
 interface BookingFormData {
@@ -11,6 +12,9 @@ interface BookingFormData {
   phone: string;
   email: string;
   location: string;
+  locationLat?: number | undefined;
+  locationLng?: number | undefined;
+  distanceKm?: number | undefined;
   eventType: string;
   duration: string;
   numberOfPeople: string;
@@ -36,11 +40,28 @@ export function Booking() {
     phone: "",
     email: "",
     location: "",
+    locationLat: undefined,
+    locationLng: undefined,
+    distanceKm: undefined,
     eventType: "",
     duration: "",
     numberOfPeople: "",
     notes: "",
   });
+  // Studio coordinates can be provided via env vars VITE_STUDIO_LAT and VITE_STUDIO_LNG
+  const STUDIO_LAT = parseFloat((import.meta as any).env.VITE_STUDIO_LAT) || 0;
+  const STUDIO_LNG = parseFloat((import.meta as any).env.VITE_STUDIO_LNG) || 0;
+
+  const computeDistanceKm = (lat1?: number, lon1?: number, lat2?: number, lon2?: number) => {
+    if (lat1 == null || lon1 == null || lat2 == null || lon2 == null) return 0;
+    const toRad = (deg: number) => (deg * Math.PI) / 180;
+    const R = 6371; // km
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -100,30 +121,46 @@ export function Booking() {
   }, []);
 
   const sendBookingNotificationEmail = async (bookingData: BookingFormData) => {
-    const { error: functionError } = await supabase.functions.invoke("send-booking-email", {
-      body: {
-        serviceType: bookingData.serviceType,
-        eventDate: bookingData.eventDate
-          ? bookingData.eventDate.toLocaleDateString("en-ZA", {
-              weekday: "long",
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-            })
-          : "Not selected",
-        fullName: bookingData.fullName,
-        phone: bookingData.phone,
-        email: bookingData.email,
-        location: bookingData.location,
-        eventType: bookingData.eventType,
-        duration: bookingData.duration,
-        numberOfPeople: bookingData.numberOfPeople,
-        notes: bookingData.notes,
+    // Use the function's public URL with the anon key to avoid forwarding ES256 user JWTs
+    const supabaseUrl = (import.meta as any).env.VITE_SUPABASE_URL as string;
+    const projectRef = supabaseUrl?.replace(/^https?:\/\//, '')?.split('.')?.[0];
+    const fnUrl = `https://${projectRef}.functions.supabase.co/send-booking-email`;
+    const anonKey = (import.meta as any).env.VITE_SUPABASE_ANON_KEY as string;
+
+    const payload = {
+      serviceType: bookingData.serviceType,
+      eventDate: bookingData.eventDate
+        ? bookingData.eventDate.toLocaleDateString('en-ZA', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+          })
+        : 'Not selected',
+      fullName: bookingData.fullName,
+      phone: bookingData.phone,
+      email: bookingData.email,
+      location: bookingData.location,
+      distance: bookingData.distanceKm != null ? `${bookingData.distanceKm} km` : undefined,
+      eventType: bookingData.eventType,
+      duration: bookingData.duration,
+      numberOfPeople: bookingData.numberOfPeople,
+      notes: bookingData.notes,
+    };
+
+    const resp = await fetch(fnUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: anonKey,
+        Authorization: `Bearer ${anonKey}`,
       },
+      body: JSON.stringify(payload),
     });
 
-    if (functionError) {
-      throw new Error(functionError.message);
+    if (!resp.ok) {
+      const txt = await resp.text();
+      throw new Error(`send-booking-email function error: ${resp.status} ${txt}`);
     }
   };
 
@@ -153,6 +190,9 @@ export function Booking() {
             phone: formData.phone,
             email: formData.email,
             location: formData.location,
+            location_lat: formData.locationLat ?? null,
+            location_lng: formData.locationLng ?? null,
+            distance_km: formData.distanceKm ?? null,
             event_type: formData.eventType,
             duration: formData.duration,
             number_of_people: formData.numberOfPeople,
@@ -192,6 +232,9 @@ export function Booking() {
           phone: "",
           email: "",
           location: "",
+            locationLat: undefined,
+            locationLng: undefined,
+            distanceKm: undefined,
           eventType: "",
           duration: "",
           numberOfPeople: "",
@@ -312,14 +355,65 @@ export function Booking() {
                 <MapPin className="w-4 h-4" />
                 Event Location <span className="text-red-500">*</span>
               </label>
-              <input
-                type="text"
-                required
+              <AddressAutocomplete
                 value={formData.location}
-                onChange={(e) => updateFormData("location", e.target.value)}
-                className="w-full px-4 py-3 bg-neutral-900 border border-white/20 text-white focus:outline-none focus:border-yellow-400"
+                onSelect={(address: string, lat?: number, lng?: number) => {
+                  updateFormData("location", address);
+                  updateFormData("locationLat", lat ?? undefined);
+                  updateFormData("locationLng", lng ?? undefined);
+                  if (lat != null && lng != null && STUDIO_LAT && STUDIO_LNG) {
+                    // compute straight-line distance immediately
+                    const d = computeDistanceKm(lat, lng, STUDIO_LAT, STUDIO_LNG);
+                    updateFormData("distanceKm", Number(d.toFixed(2)));
+
+                    // request Google driving distance via Supabase Edge Function
+                    (async () => {
+                      try {
+                        // Call the deployed Edge Function via its public URL and supply the anon key
+                        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+                        const projectRef = supabaseUrl?.replace(/^https?:\/\//, '')?.split('.')?.[0];
+                        const fnUrl = `https://${projectRef}.functions.supabase.co/get-distance`;
+
+                        const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+                        const resp = await fetch(fnUrl, {
+                          method: 'POST',
+                          headers: {
+                            'Content-Type': 'application/json',
+                            'apikey': anonKey,
+                            'Authorization': `Bearer ${anonKey}`,
+                          },
+                          body: JSON.stringify({ origin: `${STUDIO_LAT},${STUDIO_LNG}`, destination: `${lat},${lng}` }),
+                        });
+
+                        if (resp.ok) {
+                          const data = await resp.json();
+                          if (data && data.distance_meters != null) {
+                            const km = Number((data.distance_meters / 1000).toFixed(2));
+                            updateFormData('distanceKm', km);
+                          }
+                        } else {
+                          const txt = await resp.text();
+                          console.error('get-distance function error:', resp.status, txt);
+                        }
+                      } catch (err) {
+                        console.error('Error fetching driving distance', err);
+                      }
+                    })();
+                  } else {
+                    updateFormData("distanceKm", undefined);
+                  }
+                }}
                 placeholder="Venue name or address"
               />
+
+              {formData.locationLat != null && formData.locationLng != null && STUDIO_LAT && STUDIO_LNG && (
+                <p className="text-sm text-white/70 mt-2">
+                  Distance from 3nstudioz: {computeDistanceKm(formData.locationLat, formData.locationLng, STUDIO_LAT, STUDIO_LNG).toFixed(1)} km
+                  {formData.distanceKm != null && (
+                    <span> — stored: {formData.distanceKm} km</span>
+                  )}
+                </p>
+              )}
             </div>
 
             {/* Event Type */}
