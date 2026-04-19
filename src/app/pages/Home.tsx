@@ -1,13 +1,13 @@
 import { Link } from "react-router";
-import { Camera, Video, Star, ArrowRight } from "lucide-react";
+import { Camera, Video, Star, ArrowRight, X } from "lucide-react";
 import { ImageWithFallback } from "../components/figma/ImageWithFallback";
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 
 export function Home() {
-  const [testimonials, setTestimonials] = useState([]);
+  const [testimonials, setTestimonials] = useState<any[]>([]);
   const [loadingTestimonials, setLoadingTestimonials] = useState(true);
-  const [testimonialsError, setTestimonialsError] = useState(null);
+  const [testimonialsError, setTestimonialsError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchTestimonials = async () => {
@@ -26,6 +26,71 @@ export function Home() {
       setLoadingTestimonials(false);
     };
     fetchTestimonials();
+  }, []);
+
+  // Recent work from DB
+  const [recentWork, setRecentWork] = useState<any[]>([]);
+  const [loadingRecentWork, setLoadingRecentWork] = useState(true);
+  const [recentLightbox, setRecentLightbox] = useState<any | null>(null);
+
+  // Close lightbox with Escape key
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setRecentLightbox(null);
+    };
+    if (recentLightbox) {
+      window.addEventListener('keydown', onKey);
+      return () => window.removeEventListener('keydown', onKey);
+    }
+    return;
+  }, [recentLightbox]);
+
+  const getYouTubeVideoId = (url: string): string | null => {
+    try {
+      const parsedUrl = new URL(url);
+      const host = parsedUrl.hostname.replace('www.', '');
+      if (host === 'youtu.be') return parsedUrl.pathname.split('/').find(Boolean) ?? null;
+      if (host === 'youtube.com' || host === 'm.youtube.com') {
+        const watchId = parsedUrl.searchParams.get('v');
+        if (watchId) return watchId;
+        const parts = parsedUrl.pathname.split('/').filter(Boolean);
+        if (parts[0] === 'shorts' || parts[0] === 'embed') return parts[1] ?? null;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  };
+
+  const getYouTubeThumbnailUrl = (url: string): string | null => {
+    const id = getYouTubeVideoId(url);
+    return id ? `https://img.youtube.com/vi/${id}/hqdefault.jpg` : null;
+  };
+
+  const getYouTubeEmbedUrl = (url: string): string | null => {
+    const id = getYouTubeVideoId(url);
+    return id ? `https://www.youtube.com/embed/${id}?autoplay=1&rel=0` : null;
+  };
+
+  useEffect(() => {
+    const fetchRecent = async () => {
+      setLoadingRecentWork(true);
+      try {
+        const { data, error } = await supabase
+          .from('recent_work')
+          .select('*')
+          .order('uploaded_at', { ascending: false })
+          .limit(4);
+        if (error) throw error;
+        setRecentWork(data || []);
+      } catch (err) {
+        console.error('Error fetching recent work:', err);
+        setRecentWork([]);
+      } finally {
+        setLoadingRecentWork(false);
+      }
+    };
+    fetchRecent();
   }, []);
 
   return (
@@ -123,21 +188,119 @@ export function Home() {
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            {[
-              "https://res.cloudinary.com/djqvmg7pb/image/upload/v1775557926/711A2748_pr1wck.jpg",
-              "https://res.cloudinary.com/djqvmg7pb/image/upload/v1775562017/711A1976_yymhwv.jpg",
-              "https://res.cloudinary.com/djqvmg7pb/image/upload/v1775562406/711A8567_njpb69.jpg",
-              "https://res.cloudinary.com/djqvmg7pb/image/upload/v1775563403/711A5115_gjmr1t.jpg",
-            ].map((img, i) => (
-              <div key={i} className="aspect-square overflow-hidden">
-                <ImageWithFallback
-                  src={img}
-                  alt={`Portfolio ${i + 1}`}
-                  className="w-full h-full object-cover hover:scale-110 transition-transform duration-500"
-                />
-              </div>
-            ))}
+            {loadingRecentWork ? (
+              // placeholders
+              Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="aspect-square overflow-hidden bg-neutral-900 animate-pulse" />
+              ))
+            ) : recentWork.length === 0 ? (
+              <div className="col-span-2 md:col-span-4 text-center text-white/60 py-12">No recent work available.</div>
+            ) : (
+              recentWork.map((item, i) => (
+                <button
+                  type="button"
+                  key={item.id ?? i}
+                  onClick={() => setRecentLightbox(item)}
+                  aria-label={`Open ${item.title || 'media'}`}
+                  className="aspect-square overflow-hidden"
+                >
+                  {item.type === 'video' ? (
+                    (() => {
+                      const thumb = getYouTubeThumbnailUrl(item.url);
+                      if (thumb) {
+                        return (
+                          <ImageWithFallback
+                            src={thumb}
+                            alt={item.title || `Video ${i + 1}`}
+                            className="w-full h-full object-cover hover:scale-110 transition-transform duration-500"
+                          />
+                        );
+                      }
+                      return (
+                        <video
+                          src={item.url}
+                          className="w-full h-full object-cover hover:scale-110 transition-transform duration-500"
+                          muted
+                          playsInline
+                          preload="metadata"
+                        />
+                      );
+                    })()
+                  ) : (
+                    <ImageWithFallback
+                      src={item.url}
+                      alt={item.title || `Portfolio ${i + 1}`}
+                      className="w-full h-full object-cover hover:scale-110 transition-transform duration-500"
+                    />
+                  )}
+                </button>
+              ))
+            )}
           </div>
+
+          {/* Recent work lightbox modal */}
+          {recentLightbox && (
+            <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-4">
+              <button
+                type="button"
+                aria-label="Close lightbox"
+                onClick={() => setRecentLightbox(null)}
+                className="absolute inset-0"
+              />
+              <div className="max-w-6xl w-full relative z-10">
+                {/* Visible close button */}
+                <button
+                  onClick={() => setRecentLightbox(null)}
+                  className="absolute top-3 right-3 z-20 bg-white/10 hover:bg-white/20 rounded-full p-2"
+                  aria-label="Close"
+                >
+                  <X className="w-5 h-5 text-white" />
+                </button>
+
+                <div className="w-full h-[60vh] md:h-[70vh] lg:h-[80vh] flex items-center justify-center">
+                  {recentLightbox.type === 'video' ? (
+                    (() => {
+                      const embed = getYouTubeEmbedUrl(recentLightbox.url);
+                      if (embed) {
+                        return (
+                          <div className="relative w-full h-full">
+                            <iframe
+                              src={embed}
+                              title={recentLightbox.title}
+                              className="absolute inset-0 h-full w-full"
+                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                              referrerPolicy="strict-origin-when-cross-origin"
+                              allowFullScreen
+                            />
+                          </div>
+                        );
+                      }
+                      return (
+                        <video
+                          src={recentLightbox.url}
+                          className="max-h-full w-auto h-full object-contain"
+                          controls
+                          autoPlay
+                          playsInline
+                        />
+                      );
+                    })()
+                  ) : (
+                    <ImageWithFallback
+                      src={recentLightbox.url}
+                      alt={recentLightbox.title}
+                      className="max-h-full w-auto h-full object-contain"
+                    />
+                  )}
+                </div>
+
+                <div className="text-center mt-6">
+                  <p className="text-white text-xl mb-2">{recentLightbox.title}</p>
+                  <p className="text-white/60 capitalize">{recentLightbox.category}</p>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="text-center">
             <Link

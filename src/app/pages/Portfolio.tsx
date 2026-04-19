@@ -178,7 +178,14 @@ export function Portfolio() {
                   </p>
                 </div>
                 {item.type === "video" && (
-                  <Play className="absolute top-4 right-4 w-8 h-8 text-white" />
+                  <> 
+                    {/* Persistent centered play badge so users know it's a video without hovering */}
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <div className="bg-black/50 rounded-full p-3">
+                        <Play className="w-8 h-8 text-white" />
+                      </div>
+                    </div>
+                  </>
                 )}
               </div>
             </button>
