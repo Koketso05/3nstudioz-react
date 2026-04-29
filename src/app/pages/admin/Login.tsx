@@ -3,6 +3,7 @@ import { Lock, LogIn, AlertCircle } from "lucide-react";
 import { useNavigate } from "react-router";
 import { supabase } from "../../../lib/supabase";
 import { AnalyticsListener } from "../../components/AnalyticsListener";
+import { Seo } from "../../../lib/seo";
 
 export function AdminLogin() {
   const [email, setEmail] = useState("");
@@ -40,6 +41,7 @@ export function AdminLogin() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-neutral-900 to-black flex items-center justify-center px-4">
       <AnalyticsListener />
+      <Seo />
       <div className="max-w-md w-full">
         <div className="bg-white border border-neutral-200 p-8">
           <div className="flex justify-center mb-8">

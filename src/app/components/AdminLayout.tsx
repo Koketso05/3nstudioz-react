@@ -3,6 +3,7 @@ import { LayoutDashboard, Calendar, Image, Package, FileText, LogOut } from "luc
 import { useEffect, useState } from "react";
 import { AnalyticsListener } from "./AnalyticsListener";
 import { supabase } from "../../lib/supabase";
+import { Seo } from "../../lib/seo";
 
 export function AdminLayout() {
   const location = useLocation();
@@ -70,6 +71,7 @@ export function AdminLayout() {
   return (
     <div className="min-h-screen bg-neutral-50">
       <AnalyticsListener />
+      <Seo />
       {/* Header */}
       <header className="bg-black text-white border-b border-white/10">
         <div className="flex items-center justify-between px-6 py-4">
