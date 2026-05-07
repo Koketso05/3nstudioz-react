@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useLocation } from "react-router";
+import { Link, useLocation } from "react-router";
 import { Calendar, Clock, MapPin, Users, FileText, CheckCircle, AlertCircle } from "lucide-react";
 import { Calendar as CalendarComponent } from "../components/Calendar";
 import AddressAutocomplete from "../components/AddressAutocomplete";
@@ -557,8 +557,18 @@ export function Booking() {
                 </div>
               )}
 
+              <div className="mt-4 p-3 bg-yellow-400/10 border border-yellow-400/20 text-center">
+                <p className="text-xs text-yellow-300">
+                  Please note: A 60% non-refundable deposit is required for all Premium Packages before 3NStudioz can provide photography or videography services.
+                </p>
+              </div>
+
               <p className="text-xs text-white/50 mt-4 text-center">
-                By submitting, you agree to our terms and conditions
+                By submitting, you agree to our {" "}
+                <Link to="/terms-and-conditions" className="text-yellow-400 hover:text-yellow-300 underline">
+                  terms and conditions
+                </Link>
+                .
               </p>
             </div>
           </div>

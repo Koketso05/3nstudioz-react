@@ -38,7 +38,7 @@ const normalizeSiteUrl = (siteUrl) => siteUrl.trim().replace(/\/+$/, "");
 const envValues = readEnvFile(envFilePath);
 const configuredSiteUrl = normalizeSiteUrl(process.env.VITE_SITE_URL || envValues.VITE_SITE_URL || "");
 
-const publicRoutes = ["/", "/about", "/booking", "/contact", "/portfolio", "/services"];
+const publicRoutes = ["/", "/about", "/booking", "/contact", "/portfolio", "/services", "/terms-and-conditions"];
 
 mkdirSync(distDir, { recursive: true });
 

@@ -57,6 +57,13 @@ const ROUTE_SEO: Record<string, SeoDefinition> = {
     keywords:
       "photography packages Pretoria, videography packages Pretoria, wedding packages South Africa, event media services",
   },
+  "/terms-and-conditions": {
+    title: "Terms and Conditions | 3NStudioz",
+    description:
+      "Read the 3NStudioz photography and videography terms and conditions, including booking, payment, cancellations, delivery timelines, and usage rights.",
+    keywords:
+      "3NStudioz terms and conditions, photography booking terms, videography payment policy, cancellation policy",
+  },
 };
 
 const ADMIN_SEO: SeoDefinition = {

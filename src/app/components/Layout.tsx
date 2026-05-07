@@ -149,6 +149,12 @@ export function Layout() {
                     {link.label}
                   </Link>
                 ))}
+                <Link
+                  to="/terms-and-conditions"
+                  className="block text-white/60 hover:text-white text-sm transition-colors"
+                >
+                  Terms and Conditions
+                </Link>
               </div>
             </div>
             <div>

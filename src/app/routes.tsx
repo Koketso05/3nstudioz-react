@@ -6,6 +6,7 @@ import { Services } from "./pages/Services";
 import { Booking } from "./pages/Booking";
 import { Contact } from "./pages/Contact";
 import { About } from "./pages/About";
+import { TermsAndConditions } from "./pages/TermsAndConditions";
 import { ProtectedAdminLayout } from "./components/ProtectedAdminLayout";
 import { AdminLogin } from "./pages/admin/Login";
 import { AdminDashboard } from "./pages/admin/Dashboard";
@@ -26,6 +27,7 @@ export const router = createBrowserRouter([
       { path: "booking", Component: Booking },
       { path: "contact", Component: Contact },
       { path: "about", Component: About },
+      { path: "terms-and-conditions", Component: TermsAndConditions },
     ],
   },
   {
