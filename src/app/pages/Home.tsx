@@ -4,6 +4,10 @@ import { ImageWithFallback } from "../components/figma/ImageWithFallback";
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 
+const FALLBACK_HERO_SLIDES = [
+  "https://res.cloudinary.com/djqvmg7pb/image/upload/v1775557926/711A2748_pr1wck.jpg",
+];
+
 export function Home() {
   const [testimonials, setTestimonials] = useState<any[]>([]);
   const [loadingTestimonials, setLoadingTestimonials] = useState(true);
@@ -32,6 +36,7 @@ export function Home() {
   const [recentWork, setRecentWork] = useState<any[]>([]);
   const [loadingRecentWork, setLoadingRecentWork] = useState(true);
   const [recentLightbox, setRecentLightbox] = useState<any | null>(null);
+  const [activeHeroSlide, setActiveHeroSlide] = useState(0);
 
   // Close lightbox with Escape key
   useEffect(() => {
@@ -93,16 +98,57 @@ export function Home() {
     fetchRecent();
   }, []);
 
+  const heroSlides = recentWork
+    .map((item) => {
+      if (item.type === "video") {
+        return getYouTubeThumbnailUrl(item.url);
+      }
+
+      return item.url;
+    })
+    .filter((slide): slide is string => Boolean(slide))
+    .slice(0, 5);
+
+  const visibleHeroSlides = heroSlides.length > 0 ? heroSlides : FALLBACK_HERO_SLIDES;
+
+  useEffect(() => {
+    if (visibleHeroSlides.length <= 1) {
+      setActiveHeroSlide(0);
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      setActiveHeroSlide((currentSlide) => (currentSlide + 1) % visibleHeroSlides.length);
+    }, 5000);
+
+    return () => window.clearInterval(intervalId);
+  }, [visibleHeroSlides.length]);
+
+  useEffect(() => {
+    if (activeHeroSlide >= visibleHeroSlides.length) {
+      setActiveHeroSlide(0);
+    }
+  }, [activeHeroSlide, visibleHeroSlides.length]);
+
   return (
     <div>
       {/* Hero Section */}
       <section className="relative h-screen flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0">
-          <ImageWithFallback
-            src="https://res.cloudinary.com/djqvmg7pb/image/upload/v1775557926/711A2748_pr1wck.jpg"
-            alt="Hero"
-            className="w-full h-full object-cover"
-          />
+          {visibleHeroSlides.map((slide, index) => (
+            <div
+              key={slide}
+              className={`absolute inset-0 transition-opacity duration-1000 ${
+                index === activeHeroSlide ? "opacity-100" : "opacity-0"
+              }`}
+            >
+              <ImageWithFallback
+                src={slide}
+                alt="Hero"
+                className="w-full h-full object-cover"
+              />
+            </div>
+          ))}
           <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/50 to-black"></div>
         </div>
 
